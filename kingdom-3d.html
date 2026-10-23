@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>星塵與齒輪的艾爾帕西亞：王國養成 3D 版圖</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+:root{--gold:#d4af37;--panel:rgba(16,14,22,.94);--border:rgba(212,175,55,.45)}
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none}
+body{font-family:'Noto Sans TC',sans-serif;background:#04060c;color:#fef3c7;width:100vw;height:100vh;overflow:hidden;margin:0}
+.serif{font-family:'Noto Serif TC',serif}
+.hud-panel{background:var(--panel);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.8),0 0 25px rgba(212,175,55,.18);z-index:20}
+.btn-gold{background:linear-gradient(135deg,#d4af37,#aa771c);color:#1a1003;font-weight:700;transition:.2s;border:1px solid #fde047;box-shadow:0 2px 12px rgba(212,175,55,.3)}
+.btn-gold:hover:not(:disabled){background:linear-gradient(135deg,#fef08a,#d4af37);transform:translateY(-1px)}
+.btn-gold:disabled{opacity:.45;cursor:not-allowed}
+.btn-cam{padding:6px 11px;font-size:11.5px;font-weight:600;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:#fef08a;cursor:pointer;transition:.2s;white-space:nowrap}
+.btn-cam:hover,.btn-cam.on{border-color:#fef08a;color:#fff;background:rgba(212,175,55,.3);box-shadow:0 0 12px rgba(212,175,55,.45)}
+#hud-label{position:absolute;pointer-events:none;background:rgba(13,10,20,.95);border:1.5px solid var(--gold);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#fef08a;display:none;z-index:40;white-space:nowrap}
+.plate{position:absolute;pointer-events:none;background:rgba(18,15,26,.85);border:1px solid rgba(212,175,55,.5);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;color:#fef08a;transform:translate(-50%,-100%);white-space:nowrap;z-index:10}
+.slot{border:1.5px dashed rgba(212,175,55,.5);border-radius:10px;padding:7px 9px;font-size:12px;min-height:34px;cursor:pointer;background:rgba(0,0,0,.35)}
+.slot.full{border-style:solid;background:rgba(212,175,55,.16)}
+.chip{font-size:10.5px;padding:1px 7px;border-radius:99px;background:rgba(0,0,0,.28);font-weight:700}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:rgba(212,175,55,.45);border-radius:4px}
+</style>
+</head>
+<body>
+
+<header class="absolute top-4 left-4 z-20 flex items-center gap-3 pointer-events-none">
+  <div class="w-11 h-11 rounded-full bg-gradient-to-br from-amber-500/40 to-amber-900/60 border-2 border-amber-300 flex items-center justify-center text-amber-200 serif font-bold text-xl">星</div>
+  <div>
+    <h1 class="serif font-bold text-lg text-amber-200 tracking-wider">星塵與齒輪的艾爾帕西亞</h1>
+    <p class="text-[11px] text-amber-400/80 tracking-wider">14 座浮空島 ｜ 32 季養成 ｜ 60 種星軌結局</p>
+  </div>
+</header>
+
+<div class="absolute top-[72px] left-4 z-20 flex flex-wrap gap-1.5 max-w-[560px]">
+  <button class="btn-cam" onclick="showSetup()">✨ 重新創角</button>
+  <button class="btn-cam" onclick="showWardrobe()">👗 衣櫥＆商店</button>
+  <button class="btn-cam" onclick="showGallery()">📖 結局圖鑑</button>
+  <button class="btn-cam" onclick="judgeNow()">🔮 結局判定</button>
+  <button class="btn-cam" onclick="showSandbox()">🧪 沙盒</button>
+</div>
+
+<div id="status-panel" class="absolute top-4 right-4 hud-panel p-3.5 w-[300px] text-sm overflow-y-auto" style="max-height:calc(100vh - 330px)"></div>
+
+<div id="schedule" class="absolute bottom-4 right-4 hud-panel p-3.5 w-[300px] text-xs"></div>
+
+<div id="action-panel" class="absolute left-4 hud-panel p-4 w-[310px] hidden overflow-y-auto" style="top:112px;max-height:calc(100vh - 190px)">
+  <div class="flex items-start justify-between mb-2">
+    <div class="flex items-center gap-2">
+      <span id="panel-icon" class="text-2xl">🏰</span>
+      <div>
+        <h3 id="panel-title" class="serif font-bold text-amber-300 text-sm"></h3>
+        <p id="panel-subtitle" class="text-[10px] text-amber-400/70 tracking-widest"></p>
+      </div>
+    </div>
+    <button onclick="closePanel()" class="text-amber-400 hover:text-white px-2 rounded hover:bg-white/10">✕</button>
+  </div>
+  <p id="panel-desc" class="text-xs text-amber-100/80 mb-3 leading-relaxed"></p>
+  <div id="panel-actions" class="space-y-2"></div>
+</div>
+
+<div id="ending-card" class="absolute left-4 hud-panel p-4 w-[340px] hidden" style="top:112px"></div>
+
+<div class="absolute bottom-4 left-4 z-20 hud-panel p-2 flex flex-wrap gap-1.5 max-w-[560px]" id="panel-camera">
+  <button class="btn-cam on" onclick="camView('iso')" id="cam-iso">🌐 全景</button>
+  <button class="btn-cam" onclick="camView('castle')" id="cam-castle">🏰 王宮</button>
+  <button class="btn-cam" onclick="camView('home')" id="cam-home">🏡 自宅</button>
+  <button class="btn-cam" onclick="camView('magic')" id="cam-magic">🔮 魔法學苑</button>
+  <button class="btn-cam" onclick="camView('market')" id="cam-market">🛍️ 商店街</button>
+  <button class="btn-cam" onclick="camView('square')" id="cam-square">🎪 廣場</button>
+  <span class="w-px h-6 bg-amber-500/30 self-center"></span>
+  <button class="btn-cam" onclick="camView('daughter')" id="cam-daughter">👧 全身</button>
+  <button class="btn-cam" onclick="camView('face')" id="cam-face">🙂 臉部</button>
+  <button class="btn-cam" onclick="toggleTour()" id="btn-tour">🔄 巡航</button>
+</div>
+
+<div id="event-toast" class="absolute top-6 left-1/2 -translate-x-1/2 z-30 hud-panel px-6 py-3 text-center hidden pointer-events-none max-w-[480px]">
+  <p id="toast-title" class="serif font-bold text-amber-300 text-sm mb-0.5"></p>
+  <p id="toast-msg" class="text-xs text-amber-100"></p>
+</div>
+
+<div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/65" style="display:none">
+  <div id="modal-box" class="hud-panel p-5 overflow-y-auto" style="width:min(940px,94vw);max-height:88vh"></div>
+</div>
+
+<div id="hud-label"></div>
+<div id="plates" style="position:fixed;inset:0;pointer-events:none;z-index:10"></div>
+<div style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1">
+  <canvas id="webgl-canvas" style="width:100%;height:100%;display:block;touch-action:none"></canvas>
+</div>
+
+<script>
+// ============================================================================
+// 1. 靜態資料：屬性、星座/血型、養父、活動、服裝、商品
+// ============================================================================
+const ATTR = [['sta','體力','💪'],['int','智力','📜'],['spi','鬥志','🔥'],['pri','自尊','🦚'],['mor','道德','⚖️'],
+              ['ref','氣質','👑'],['kin','體貼','🤍'],['sen','感受','🎻'],['cha','魅力','✨'],['mar','武勇','⚔️']];
+const AL = Object.fromEntries(ATTR.map(a => [a[0], a[1]]));
+const BASE = {sta:160,int:160,spi:160,pri:150,mor:180,ref:170,kin:180,sen:170,cha:190,mar:150};
+
+// 星座 → 髮色；血型 → 瞳色與髮飾色
+const ZOD = [
+  ['天秤座',0xf9a8d4,'玫瑰粉',{ref:15,cha:15,kin:15}],
+  ['獅子座',0xf59e0b,'琥珀金',{pri:15,spi:15,mar:15}],
+  ['處女座',0x92400e,'栗棕',{int:15,mor:15,ref:15}],
+  ['雙魚座',0x2dd4bf,'薄荷綠',{sen:20,kin:15}],
+  ['天蠍座',0x7c3aed,'葡萄紫',{cha:15,sen:15,mar:15}],
+  ['白羊座',0xe11d48,'緋紅',{sta:15,mar:15,spi:15}],
+  ['金牛座',0x84cc16,'嫩葉綠',{sta:15,kin:10,spi:10}],
+  ['雙子座',0xfacc15,'亮金',{int:15,cha:15}],
+  ['巨蟹座',0xe2e8f0,'月銀',{kin:20,mor:10}],
+  ['射手座',0x2563eb,'蔚藍',{sen:15,mar:15,sta:10}],
+  ['摩羯座',0x334155,'墨灰藍',{spi:20,pri:10,sta:10}],
+  ['水瓶座',0x22d3ee,'冰藍',{int:20,sen:15}]
+];
+const BLOOD = {
+  O:{n:'O 型',eye:0xf59e0b,eyeN:'琥珀',rib:0xef4444,fx:{sta:20,spi:20},d:'精力充沛'},
+  A:{n:'A 型',eye:0x3b82f6,eyeN:'湛藍',rib:0x38bdf8,fx:{int:20,mor:20},d:'認真守序'},
+  B:{n:'B 型',eye:0x22c55e,eyeN:'翠綠',rib:0xf472b6,fx:{sen:20,cha:20},d:'自由感性'},
+  AB:{n:'AB 型',eye:0xa855f7,eyeN:'紫晶',rib:0xfacc15,fx:{ref:20,pri:20},d:'神秘高雅'}
+};
+const FATHER = {
+  paladin:{n:'🛡️ 退役聖騎士',gold:1200,sal:500,fx:{mar:80,mor:60,sta:50}},
+  noble:{n:'👑 沒落星族貴族',gold:800,sal:600,fx:{ref:90,pri:80,cha:50}},
+  merchant:{n:'⚖️ 雲遊鍊金富商',gold:2800,sal:350,fx:{int:70,spi:50}},
+  scholar:{n:'⛪ 巡禮星象學者',gold:1000,sal:450,fx:{int:80,mor:90}},
+  bard:{n:'🎻 旅行吟遊樂師',gold:900,sal:350,fx:{sen:95,cha:75}},
+  swordsman:{n:'🗡️ 浪跡破界劍客',gold:600,sal:200,fx:{sta:90,mar:90,spi:80}}
+};
+
+// 活動：t=類型 g=金幣 fx=屬性 s=壓力 sh=星蝕 tr=信賴
+const A = {
+  academy:{n:'📚 王立學院',t:'課程',g:-40,fx:{int:18,mor:5,pri:5},s:10},
+  dojo:{n:'⚔️ 武術道場',t:'課程',g:-45,fx:{mar:20,sta:12,spi:8},s:12},
+  music:{n:'🎻 音樂教室',t:'課程',g:-50,fx:{sen:18,ref:10,pri:4},s:10},
+  paint:{n:'🎨 繪畫工坊',t:'課程',g:-45,fx:{sen:16,int:8,ref:6},s:9},
+  dance:{n:'💃 皇家舞蹈課',t:'課程',g:-55,fx:{cha:18,ref:12,sta:8},s:11},
+  manner:{n:'🫖 宮廷禮儀課',t:'課程',g:-50,fx:{ref:20,mor:8,cha:8},s:10},
+  cook:{n:'🍰 御膳料理課',t:'課程',g:-40,fx:{kin:18,sen:10,spi:5},s:8},
+  church:{n:'⛪ 大聖堂修習',t:'課程',g:-30,fx:{mor:22,int:8,ref:8},s:8,sh:-15},
+  house:{n:'🏡 幫忙家務',t:'打工',g:20,fx:{kin:14,sta:8,mor:6,pri:-3},s:6,tr:2},
+  farm:{n:'🌾 皇家莊園農場',t:'打工',g:95,fx:{sta:18,mor:6,ref:-4},s:12},
+  market:{n:'⚖️ 中央商業市集',t:'打工',g:105,fx:{int:12,spi:12,ref:-3},s:11},
+  maid:{n:'🧹 貴族莊園女傭',t:'打工',g:110,fx:{ref:12,cha:10,pri:-4},s:11},
+  mine:{n:'⛏️ 地底晶礦場',t:'打工',g:150,fx:{sta:16,mar:14,spi:10,ref:-5},s:15},
+  wood:{n:'⚙️ 魔導木工機巧坊',t:'打工',g:125,fx:{int:10,sen:12,mar:8},s:12},
+  nanny:{n:'🍼 育幼院褓姆',t:'打工',g:85,fx:{kin:18,mor:10,pri:-3},s:9},
+  tutor:{n:'🖋️ 名門家庭教師',t:'打工',g:135,fx:{int:16,kin:10,spi:-2},s:12},
+  palace:{n:'🏰 王宮榮譽侍女',t:'打工',g:145,fx:{ref:18,cha:14,pri:10},s:13},
+  tavern:{n:'🍺 歡樂酒館侍應',t:'打工',g:130,fx:{cha:16,kin:10,mor:-8},s:12},
+  guard:{n:'🗡️ 暗街公會保鑣',t:'打工',g:175,fx:{mar:20,spi:12,mor:-14,kin:-8},s:16,sh:18},
+  night:{n:'🥂 夜宴社交名花',t:'打工',g:220,fx:{cha:24,pri:10,mor:-18},s:18,sh:20},
+  rest:{n:'🛏️ 自宅溫馨休養',t:'休息',g:0,fx:{},s:-45,tr:2},
+  spring:{n:'🌿 翡翠森靈春遊',t:'旅遊',g:-120,fx:{sta:15,sen:18},s:-70,tr:5},
+  summer:{n:'🏖️ 南洋群島夏季度假',t:'旅遊',g:-140,fx:{cha:22,sta:12},s:-80,tr:5},
+  stars:{n:'🌌 觀星山脈秋冬之旅',t:'旅遊',g:-130,fx:{spi:18,sen:20},s:-75,tr:5}
+};
+
+const OUTFITS = {
+  daily:{n:'🎀 星辰日常洋裝',price:0,bonus:{kin:15,cha:10},d:'溫馨日常造型'},
+  royal:{n:'👑 皇家星冠絲絨禮服',price:850,bonus:{ref:80,cha:55,pri:40},d:'王儲妃與政界高官首選'},
+  south:{n:'🌺 南洋珍珠渡假紗裙',price:650,bonus:{cha:65,sen:35,sta:20},d:'夏季度假與南洋王妃路線'},
+  forest:{n:'🐰 森靈白兔／貓耳妖精服',price:700,bonus:{sen:75,kin:55,cha:45},d:'森靈王妃與貓國公主路線'},
+  gothic:{n:'🌙 闇夜星蝕哥德禮服',price:1200,bonus:{ref:80,cha:65,pri:30},d:'每次換上星蝕 +15'},
+  knight:{n:'⚔️ 銀翼聖騎士禮裝',price:950,bonus:{mar:85,sta:50,spi:45},d:'勇者與聖騎士神裝'},
+  champ:{n:'🥂 香檳玫瑰宴會禮服',price:1100,bonus:{cha:110,ref:45,pri:40},d:'魅力加成最高的宴會禮服'},
+  queen:{n:'🌟 星冠女皇聖潔禮服',price:1800,bonus:{ref:110,cha:100,int:50,mor:50},d:'全能頂級聖裝'}
+};
+const OUTFIT_STYLE = {
+  daily:{top:0xf9a8d4,skirt:0xf9a8d4,trim:0xffffff,type:'short'},
+  royal:{top:0x6d28d9,skirt:0x6d28d9,trim:0xd4af37,type:'gown'},
+  south:{top:0x2dd4bf,skirt:0xf0abfc,trim:0xfef08a,type:'short'},
+  forest:{top:0xa7f3d0,skirt:0xfef3c7,trim:0x86efac,type:'short'},
+  gothic:{top:0x3b0764,skirt:0x1e1b4b,trim:0xa855f7,type:'short'},
+  knight:{top:0xcbd5e1,skirt:0x1d4ed8,trim:0xd4af37,type:'armor'},
+  champ:{top:0xe8b4b8,skirt:0xf5d0a9,trim:0xfef3c7,type:'gown'},
+  queen:{top:0xfffbeb,skirt:0xfef3c7,trim:0xd4af37,type:'gown'}
+};
+const SHOP = [
+  {id:'book',n:'📘 艾爾帕西亞奧術典籍',price:320,fx:{int:45,sen:20},tr:3},
+  {id:'perfume',n:'🌸 高貴星露香水',price:380,fx:{ref:45,cha:35},tr:4},
+  {id:'sword',n:'🗡️ 女武神星輝佩劍',price:420,fx:{mar:55,spi:30,pri:15},tr:0},
+  {id:'bunny',n:'🧸 星絨白兔布偶',price:150,fx:{kin:35},tr:8,stress:-25},
+  {id:'compass',n:'🧭 禁忌星象羅盤',price:500,fx:{int:40,sen:40},tr:0,sh:45,flag:'compass'}
+];
+
+// 14 座島嶼
+const ISL = [
+ {id:'castle',num:'01',name:'王宮宏偉城堡',icon:'🏰',x:0,z:-15.5,color:0x475569,acts:['manner','palace'],
+  desc:'宏偉石造同心要塞，弧形城垛與盲拱浮雕環繞，象徵王國的榮耀與威儀。'},
+ {id:'home',num:'02',name:'溫馨自宅莊園',icon:'🏡',x:0,z:7.5,color:0x10b981,acts:['rest','house'],
+  desc:'蕾娜與父親共同生活的莊園，有花園、水井與暖暖的壁爐。這裡也能換裝。'},
+ {id:'school',num:'03',name:'王立禮儀與神學院',icon:'🏛️',x:-16.5,z:-7.5,color:0x8b5cf6,acts:['academy','music','paint','dance'],
+  desc:'古典列柱與圓頂的最高學府，研修學問、音樂、繪畫與舞蹈。'},
+ {id:'magic',num:'04',name:'高等奧術魔法學苑',icon:'🔮',x:-16.5,z:7.5,color:0xec4899,acts:['wood','tutor'],
+  desc:'懸浮星環環繞的紫晶法師塔，也是魔導機巧坊與名門教師的聚集地。'},
+ {id:'dojo',num:'05',name:'皇家近衛武術道場',icon:'⚔️',x:16.5,z:-7.5,color:0xef4444,acts:['dojo'],
+  desc:'紅色衛門與開闊演武場，鍛鍊劍術、體能與戰術。'},
+ {id:'market',num:'06',name:'城鎮繁華商店街',icon:'🛍️',x:16.5,z:7.5,color:0xf59e0b,acts:['market','maid'],
+  desc:'彩色遮陽棚與鐘塔的熱鬧市集。可打工，也能逛精品店購買禮物。'},
+ {id:'farm',num:'07',name:'陽光牧歌農莊',icon:'🌾',x:-24.5,z:18.5,color:0x84cc16,acts:['farm','nanny'],
+  desc:'旋轉風車、紅磚穀倉與金黃麥田，樸實的原野打工地。'},
+ {id:'restaurant',num:'08',name:'王國皇家星級餐館',icon:'🍽️',x:24.5,z:18.5,color:0xf97316,acts:['cook','tavern','night'],
+  desc:'燈串閃爍的露天餐館，學料理也能當外場，夜間更有宴會名花的工作。'},
+ {id:'church',num:'09',name:'慈愛聖光大修道院',icon:'⛪',x:-32.5,z:0,color:0x06b6d4,acts:['church'],
+  desc:'雙鐘樓大教堂，在彩繪玻璃與聖歌中淨化心靈、消除星蝕。'},
+ {id:'cemetery',num:'10',name:'夜幕幽影神秘墓園',icon:'🪦',x:32.5,z:0,color:0x64748b,acts:['guard'],
+  desc:'黑鐵大門與幽藍鬼火，暗街公會在此招募保鑣，高薪但會累積星蝕。'},
+ {id:'forest',num:'11',name:'東部精靈古樹秘境',icon:'🌲',x:-24.5,z:-18.5,color:0x059669,acts:['spring'],
+  desc:'世界之樹與發光蕈菇，春遊時可能遇見白兔王子與貓國王子。'},
+ {id:'desert',num:'12',name:'西部灼熱金字塔遺跡',icon:'🏜️',x:24.5,z:-18.5,color:0xd97706,acts:['mine'],
+  desc:'階梯金字塔下的地底晶礦場，傳聞有「地底晶脈王子」出沒。'},
+ {id:'mountain',num:'13',name:'北部萬年冰川晶山',icon:'❄️',x:0,z:-32.5,color:0x0284c7,acts:['stars'],
+  desc:'透光藍晶與飄雪的冰峰，觀星之旅最美的地方。'},
+ {id:'square',num:'14',name:'王國收穫祭慶典大廣場',icon:'🎪',x:0,z:24.5,color:0xa855f7,acts:['summer'],
+  desc:'年度大祭的舞台。可報名四大競賽，也能搭船前往南洋度假。',special:'contest'}
+];
+const K = 1.12, R = 7.2;
+ISL.forEach(d => { d.x *= K; d.z *= K; });
+const isl = id => ISL.find(d => d.id === id);
+
+const CONTESTS = [
+  {id:'beauty',n:'👑 星冠才藝盛典',f:e=>e.cha+e.ref*.7,g:{cha:35,ref:25},d:'魅力與氣質的舞台表現'},
+  {id:'martial',n:'⚔️ 皇家武鬥大會',f:e=>e.mar+e.sta*.6+e.spi*.6,g:{mar:35,spi:25},d:'武勇、體力與鬥志'},
+  {id:'art',n:'🎨 星辰藝術音樂祭',f:e=>e.sen+e.ref*.6+e.int*.6,g:{sen:35,int:25},d:'感受、氣質與智力'},
+  {id:'cook',n:'🍰 御前料理爭霸賽',f:e=>e.kin+e.sen*.7+S.cnt.house*30,g:{kin:35,mor:20},d:'體貼、感受與家務經驗'}
+];
+
+// ============================================================================
+// 2. 60 種結局
+// ============================================================================
+const ENDINGS = [
+ [1,'星冠女皇（真結局）','S','queen',(e,c)=>e.ref>=850&&e.cha>=850&&e.int>=600&&e.mor>=500&&c.trust>=80],
+ [2,'王國王儲妃','S','royal',(e,c)=>e.cha>=750&&e.ref>=700&&e.kin>=400&&(c.flag.prince||c.cnt.palace>=2)],
+ [3,'南洋汐音王妃','S','south',(e,c)=>e.cha>=700&&e.sen>=550&&(c.flag.south||c.owned.south)],
+ [4,'翡翠森靈王妃（白兔國）','S','forest',(e,c)=>e.sen>=600&&e.kin>=550&&e.ref>=500&&(c.flag.rabbit||c.owned.forest)],
+ [5,'地底晶脈王妃','A','royal',(e,c)=>e.cha>=650&&e.ref>=500&&(c.flag.crystal||c.cnt.mine>=3)],
+ [6,'星絨貓國公主','S','forest',(e)=>e.sen>=650&&e.kin>=600&&e.cha>=550],
+ [7,'星靈女王繼承者','S','queen',(e)=>e.ref>=900&&e.kin>=800&&e.sen>=700],
+ [8,'熾翼大天使','S','queen',(e,c)=>e.mor>=850&&e.ref>=800&&c.shadow<=20],
+ [9,'晨露小星靈','B','forest',(e,c)=>e.sen>=500&&c.trust<=45],
+ [10,'時空觀測使','S','gothic',(e,c)=>e.int>=800&&e.sen>=800&&c.flag.compass],
+ [11,'守護者之誓（養父永恆羈絆）','S','champ',(e,c)=>e.kin>=800&&e.cha>=650&&c.trust>=95&&c.cnt.house>=3],
+ [12,'永夜魔界女王','S','gothic',(e,c)=>e.cha>=800&&e.mar>=600&&e.mor<=120&&c.shadow>=100],
+ [13,'暗夜小惡魔','A','gothic',(e,c)=>e.sen>=500&&e.cha>=550&&e.mor<=150&&c.shadow>=60],
+ [14,'地下辛迪加首領','A','gothic',(e)=>e.mar>=650&&e.int>=500&&e.mor<=120],
+ [15,'幻影怪盜','B','gothic',(e)=>e.mar>=400&&e.sen>=400&&e.mor<=150],
+ [16,'禁忌黑鍊金師','A','gothic',(e)=>e.int>=650&&e.sen>=550&&e.mor<=180],
+ [17,'王國攝政女王','S','royal',(e)=>e.ref>=900&&e.int>=600&&e.pri>=550&&e.mor>=500],
+ [18,'帝國首席宰相','S','royal',(e)=>e.int>=750&&e.pri>=500&&e.ref>=500&&e.mor>=500],
+ [19,'邊境大公（地方領主）','A','royal',(e,c)=>e.spi>=450&&e.pri>=450&&c.gold>=2500],
+ [20,'最高執政官','A','royal',(e)=>e.int>=550&&e.pri>=500&&e.mor>=500&&e.spi>=500],
+ [21,'王立大法官','A','royal',(e)=>e.mor>=700&&e.int>=550&&e.pri>=500],
+ [22,'王都行政官','B','daily',(e)=>e.int>=380&&e.mor>=300&&e.ref>=300],
+ [23,'傳說破界勇者','S','knight',(e)=>e.mar>=900&&e.sta>=700&&e.spi>=700&&e.mor>=600],
+ [24,'王國大將軍','S','knight',(e)=>e.mar>=750&&e.sta>=650&&e.int>=500&&e.spi>=550],
+ [25,'皇家聖騎士','A','knight',(e)=>e.mar>=550&&e.sta>=500&&e.mor>=500&&e.ref>=350],
+ [26,'飛空艇艦長','A','knight',(e)=>e.mar>=500&&e.int>=500&&e.spi>=500&&e.sen>=400],
+ [27,'賞金獵人公會長','B','knight',(e)=>e.mar>=550&&e.spi>=500&&e.mor<450],
+ [28,'王國衛隊劍士','B','knight',(e)=>e.mar>=350&&e.sta>=350],
+ [29,'王立奧術大博士','S','royal',(e)=>e.int>=880&&e.int>=e.sen&&e.int>=e.mar],
+ [30,'賢者之石鍊金師','A','gothic',(e)=>e.int>=650&&e.sen>=550&&e.mor>=200],
+ [31,'哲學思想家','A','daily',(e)=>e.int>=550&&e.pri>=400&&e.sen>=400],
+ [32,'皇家總建築師','A','daily',(e,c)=>e.int>=450&&e.sen>=450&&c.cnt.wood>=2],
+ [33,'魔導機巧鍛造師','A','knight',(e,c)=>e.sta>=400&&e.sen>=400&&(c.cnt.mine+c.cnt.wood)>=3],
+ [34,'王立學院名師','B','daily',(e)=>e.int>=420&&e.mor>=350],
+ [35,'晶礦脈大亨','A','royal',(e,c)=>c.gold>=2500&&c.cnt.mine>=3],
+ [36,'皇家莊園農場主','A','daily',(e,c)=>c.gold>=2500&&c.cnt.farm>=3],
+ [37,'王都金融銀行家','A','royal',(e,c)=>c.gold>=2800&&e.int>=450&&e.mor>=350],
+ [38,'地下錢莊掌櫃','B','gothic',(e,c)=>c.gold>=2000&&e.int>=400&&e.mor<350],
+ [39,'王都首席歌姬','S','champ',(e,c)=>e.cha>=650&&e.sen>=500&&c.cnt.music>=2],
+ [40,'皇家芭蕾舞后','A','champ',(e)=>e.cha>=550&&e.sen>=450&&e.sta>=400],
+ [41,'劇院傳奇名伶','A','champ',(e)=>e.cha>=600&&e.sen>=450&&e.pri>=400],
+ [42,'宮廷首席畫師','A','daily',(e,c)=>e.sen>=550&&e.ref>=400&&c.cnt.paint>=2],
+ [43,'交響樂團首席','A','royal',(e)=>e.sen>=550&&e.ref>=450&&e.mor>=350],
+ [44,'皇家御廚','A','daily',(e)=>e.sen>=420&&e.kin>=450],
+ [45,'暢銷幻想文學作家','B','daily',(e)=>e.int>=450&&e.sen>=450&&e.pri>=350],
+ [46,'巡迴吟遊詩人','B','forest',(e)=>e.sen>=400&&e.sta>=350],
+ [47,'廣場街頭藝人','B','south',(e)=>e.cha>=350&&e.sta>=300&&e.sen>=300],
+ [48,'聖堂大司教','S','queen',(e)=>e.mor>=750&&e.int>=450&&e.ref>=500],
+ [49,'新興星教教祖','A','queen',(e)=>e.mor>=650&&e.cha>=550&&e.pri>=500&&e.spi>=450],
+ [50,'聖潔修女','B','daily',(e)=>e.mor>=400&&e.kin>=350],
+ [51,'王國貴族正妃（公爵夫人）','A','royal',(e)=>e.kin>=600&&e.ref>=550&&e.cha>=550],
+ [52,'社交界領袖名媛','A','champ',(e)=>e.cha>=700&&e.pri>=e.mor],
+ [53,'大商會富豪夫人','B','champ',(e)=>e.cha>=500&&e.kin>=450&&e.mor>=400],
+ [54,'社交界傳奇名媛','B','champ',(e)=>e.cha>=500&&e.mor<350],
+ [55,'王宮首席女官','B','royal',(e,c)=>e.ref>=350&&c.cnt.palace>=2],
+ [56,'名門家庭教師','B','daily',(e,c)=>e.int>=350&&c.cnt.tutor>=2],
+ [57,'貴族莊園管家（女僕長）','B','daily',(e,c)=>e.kin>=320&&(c.cnt.maid+c.cnt.nanny)>=2],
+ [58,'酒館人氣看板娘','B','south',(e,c)=>e.cha>=320&&(c.cnt.tavern+c.cnt.market)>=2],
+ [59,'夜宴社交名花（公關）','B','champ',(e,c)=>e.cha>=450&&(c.cnt.night>=1||e.mor<280)],
+ [60,'留家貼心幫手（溫馨日常）','C','daily',()=>true]
+].map(a => ({id:a[0],name:a[1],rank:a[2],outfit:a[3],cond:a[4]}));
+const GANG_IDS = [12,13,14,15];
+function endingCat(id){
+  if(id<=6) return 0; if(id<=11) return 1; if(id<=16) return 2; if(id<=22) return 3; if(id<=28) return 4;
+  if(id<=34) return 5; if(id<=38) return 6; if(id<=47) return 7; if(id<=50) return 8; if(id<=54) return 9; return 10;
+}
+const EPI = [
+ '星辰與王冠為她而亮，王國的人們傳頌著蕾娜的名字。',
+ '星界的光芒在她身後流轉，那是父女羈絆與奇蹟的見證。',
+ '暗街的夜風吹起她的衣擺，所有人都得仰視這位夜之主人。',
+ '她以智慧與氣度站上王國的政壇，一步一步改寫了歷史。',
+ '劍鋒指向前方，她踏上了屬於自己的冒險與榮耀之路。',
+ '她埋首於學問與技藝，成為各自領域裡無可取代的名匠。',
+ '勤奮累積的財富，成了她守護家人與夢想的後盾。',
+ '舞台的燈光亮起，掌聲與喝采為她而響。',
+ '她以虔誠與慈愛，守護著王國每一個需要幫助的人。',
+ '優雅的談吐與魅力，讓她在名門與社交圈裡閃閃發光。',
+ '平凡而踏實的生活裡，有她和養父最溫暖的日常。'
+];
+
+// ============================================================================
+// 3. 遊戲狀態
+// ============================================================================
+let S = null;
+const GKEY = 'alpasia_gallery_v2';
+function loadGallery(){ try{ return JSON.parse(localStorage.getItem(GKEY)||'[]'); }catch(e){ return []; } }
+function saveGallery(g){ try{ localStorage.setItem(GKEY, JSON.stringify(g)); }catch(e){} }
+let gallery = loadGallery();
+
+const ageOf = s => Math.min(18, 10 + Math.floor(s/4));
+const stageOfAge = a => a < 13 ? 'child' : a < 16 ? 'teen' : 'adult';
+const SEASONS = ['春季（4月）','夏季（7月）','秋季（10月）','冬季（1月）'];
+const STAGE_N = {child:'🌸 童年版',teen:'🌿 青少年版',adult:'👑 成年版'};
+const hex = n => '#' + n.toString(16).padStart(6,'0');
+
+function newGame(cfg){
+  const z = ZOD[cfg.zod], b = BLOOD[cfg.blood], f = FATHER[cfg.father];
+  const st = {...BASE};
+  [z[3], b.fx, f.fx].forEach(fx => { for(const k in fx) st[k] += fx[k]; });
+  S = {
+    name:cfg.name || '蕾娜', zod:cfg.zod, blood:cfg.blood, father:cfg.father,
+    season:0, gold:f.gold, stress:20, trust:50, shadow:0, st,
+    slots:[null,null,null], cnt:{}, flag:{}, owned:{daily:true,royal:true,south:true,forest:true},
+    items:{}, outfit:'daily', at:'home', contested:false, over:false, log:['蕾娜從星辰之繭甦醒，成為了你的女兒。'],
+    hair:z[1], hairN:z[2], eye:b.eye, eyeN:b.eyeN, rib:b.rib
+  };
+  Object.keys(A).forEach(k => S.cnt[k] = 0);
+}
+function eff(){
+  const e = {}, bn = OUTFITS[S.outfit].bonus;
+  ATTR.forEach(([k]) => e[k] = Math.max(0, Math.min(999, S.st[k] + (bn[k]||0))));
+  return e;
+}
+function mood(){
+  const e = eff();
+  if(S.stress >= e.sta) return ['生病虛弱','text-rose-300'];
+  if(S.gold < 80) return ['貧困焦慮','text-orange-300'];
+  if(e.cha > e.mor*2 && e.cha > 450) return ['春風滿面','text-pink-300'];
+  if(e.pri + e.ref > (e.kin + e.mor)*1.8) return ['高傲自信','text-purple-300'];
+  if(e.mor < 100 && e.mar > 350) return ['叛逆不羈','text-red-300'];
+  return ['通常良好','text-emerald-300'];
+}
+
+// ============================================================================
+// 4. Three.js 場景
+// ============================================================================
+let scene, camera, renderer, controls, raycaster, mouse;
+const tilesGroup = new THREE.Group(), bridgesGroup = new THREE.Group();
+const animated = [];
+const anim = fn => animated.push(fn);
+let isTouring = false;
+const clock = new THREE.Clock();
+
+// ---- 材質與建模工具 ----
+const matCache = new Map();
+function M(c, o){
+  const key = c + '|' + (o ? JSON.stringify(o) : '');
+  if(!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({color:c, roughness:.7, metalness:.1, ...(o||{})}));
+  return matCache.get(key);
+}
+function add(g, geo, mat, x=0, y=0, z=0, cast=true){
+  const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = cast; m.receiveShadow = true; g.add(m); return m;
+}
+const box = (g,w,h,d,c,x,y,z,o) => add(g, new THREE.BoxGeometry(w,h,d), M(c,o), x, y+h/2, z);
+const cyl = (g,rt,rb,h,c,x,y,z,seg=14,o) => add(g, new THREE.CylinderGeometry(rt,rb,h,seg), M(c,o), x, y+h/2, z);
+const cone = (g,r,h,c,x,y,z,seg=8,o) => add(g, new THREE.ConeGeometry(r,h,seg), M(c,o), x, y+h/2, z);
+const sph = (g,r,c,x,y,z,o) => add(g, new THREE.SphereGeometry(r,14,12), M(c,o), x, y, z);
+const glow = c => ({emissive:c, emissiveIntensity:1.4});
+const rnd = (a,b) => a + Math.random()*(b-a);
+
+function pine(g,x,z,s=1,c=0x166534){ cyl(g,.12*s,.18*s,.8*s,0x5b3a1a,x,0,z,6); for(let i=0;i<3;i++) cone(g,(1-i*.25)*s,1.1*s,c,x,(.6+i*.6)*s,z,8); }
+function roundTree(g,x,z,s=1,c=0x22c55e){ cyl(g,.15*s,.22*s,1.3*s,0x6b4423,x,0,z,6); sph(g,.9*s,c,x,1.9*s,z); sph(g,.6*s,c,x+.4*s,2.3*s,z+.2*s); }
+function lamp(g,x,z,c=0xfef08a){ cyl(g,.05,.07,1.5,0x374151,x,0,z,6); sph(g,.14,c,x,1.65,z,glow(c)); }
+function rock(g,x,z,s=1,c=0x6b7280){ const m = add(g,new THREE.DodecahedronGeometry(.5*s,0),M(c),x,.3*s,z); m.rotation.set(rnd(0,3),rnd(0,3),0); return m; }
+function flowers(g,x,z,cols,n=8,r=.8){ cyl(g,r+.1,r+.1,.06,0x16a34a,x,0,z,14,{roughness:1}); for(let i=0;i<n;i++){ const a=rnd(0,6.28), d=rnd(0,r); sph(g,.1,cols[i%cols.length],x+Math.cos(a)*d,.2,z+Math.sin(a)*d); } }
+function fenceLine(g,x1,z1,x2,z2,c=0xe7e5e4){
+  const L = Math.hypot(x2-x1,z2-z1), n = Math.max(2,Math.round(L/.6));
+  for(let i=0;i<=n;i++){ const t=i/n; box(g,.1,.6,.1,c,x1+(x2-x1)*t,0,z1+(z2-z1)*t); }
+  const r = box(g,L,.08,.06,c,(x1+x2)/2,.35,(z1+z2)/2); r.rotation.y = -Math.atan2(z2-z1,x2-x1);
+}
+function flag(g,x,y,z,c=0xdc2626,w=1,h=.6){
+  cyl(g,.04,.04,h*2.4,0xd4af37,x,y,z,6);
+  const pv = new THREE.Group(); pv.position.set(x,y+h*2.0,z); g.add(pv);
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(w,h), M(c,{side:THREE.DoubleSide})); p.position.x = w/2; pv.add(p);
+  const sd = rnd(0,6); anim(t => { pv.rotation.y = Math.sin(t*2+sd)*.35; });
+}
+function npc(g,x,z,body=0x3b82f6,hair=0x92400e,ry=0,s=1){
+  const n = new THREE.Group(); n.position.set(x,0,z); n.rotation.y = ry; n.scale.setScalar(s);
+  cyl(n,.07,.07,.5,0x1f2937,-.1,0,0,6); cyl(n,.07,.07,.5,0x1f2937,.1,0,0,6);
+  cyl(n,.17,.26,.75,body,0,.5,0,10);
+  sph(n,.2,0xffe4d6,0,1.45,0); add(n,new THREE.SphereGeometry(.22,10,8,0,6.3,0,1.6),M(hair),0,1.5,0);
+  g.add(n); const sd = rnd(0,6); anim(t => { n.position.y = Math.abs(Math.sin(t*1.6+sd))*.04; });
+  return n;
+}
+function particles(g,n,o={}){
+  const {rx=5,ry=4,rz=rx,y0=0,cx=0,cz=0,color=0xffffff,size=.22,mode='float',speed=1,opacity=.8} = o;
+  const geo = new THREE.BufferGeometry(), pos = new Float32Array(n*3);
+  for(let i=0;i<n;i++){ pos[i*3]=cx+rnd(-rx,rx); pos[i*3+1]=y0+rnd(0,ry); pos[i*3+2]=cz+rnd(-rz,rz); }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({color,size,transparent:true,opacity,depthWrite:false,blending:THREE.AdditiveBlending}));
+  pts.raycast = () => {}; g.add(pts);
+  anim((t,dt) => {
+    for(let i=0;i<n;i++){
+      const ix=i*3;
+      if(mode==='fall'){ pos[ix+1]-=dt*speed*1.1; pos[ix]+=Math.sin(t+i)*dt*.25; if(pos[ix+1]<y0) pos[ix+1]=y0+ry; }
+      else if(mode==='rise'){ pos[ix+1]+=dt*speed; pos[ix]+=Math.sin(t*.8+i)*dt*.15; if(pos[ix+1]>y0+ry){ pos[ix+1]=y0; pos[ix]=cx+rnd(-rx,rx); } }
+      else { pos[ix]+=Math.sin(t*.7+i)*dt*.4; pos[ix+1]+=Math.cos(t*.9+i*1.7)*dt*.3; pos[ix+2]+=Math.cos(t*.6+i*.5)*dt*.4; }
+    }
+    geo.attributes.position.needsUpdate = true;
+  });
+  return pts;
+}
+function bob(m,amp=.15,sp=1.5){ const b=m.position.y, sd=rnd(0,6); anim(t => { m.position.y = b+Math.sin(t*sp+sd)*amp; }); }
+function cornerLamps(g,c=0xfef08a){ for(let i=0;i<6;i++){ const a=i*Math.PI/3; lamp(g,Math.sin(a)*6.1,Math.cos(a)*6.1,c); } }
+function stall(g,x,z,c,ry=0){
+  const s = new THREE.Group(); s.position.set(x,0,z); s.rotation.y = ry; g.add(s);
+  box(s,1.6,.9,1.0,0x78350f,0,0,0);
+  for(const px of [-.75,.75]) cyl(s,.04,.04,1.8,0x57534e,px,0,.45,6);
+  const canopy = add(s,new THREE.CylinderGeometry(.95,.95,1.7,3),M(c),0,1.95,.1); canopy.rotation.z = Math.PI/2;
+  for(let i=0;i<3;i++) sph(s,.14,[0xef4444,0xfacc15,0x22c55e][i],-.4+i*.4,1.0,0);
+}
+
+// ---- 場景初始化 ----
+function init(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070e);
+  scene.fog = new THREE.FogExp2(0x05070e, .006);
+  camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, .1, 1500);
+  renderer = new THREE.WebGLRenderer({canvas:document.getElementById('webgl-canvas'), antialias:true, alpha:true});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2;
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = .05;
+  controls.maxPolarAngle = Math.PI/2.06; controls.minDistance = 6; controls.maxDistance = 260;
+  const iso = viewFor('iso'); camera.position.copy(iso.pos); controls.target.copy(iso.target);
+
+  scene.add(new THREE.AmbientLight(0x2d3a56, 2.3));
+  const sun = new THREE.DirectionalLight(0xfff6e0, 2.6); sun.position.set(40,80,50); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048,2048); sun.shadow.bias = -.0003;
+  Object.assign(sun.shadow.camera,{near:10,far:300,left:-80,right:80,top:80,bottom:-80}); scene.add(sun);
+  const cl = new THREE.PointLight(0xd4af37, 2.6, 60); cl.position.set(isl('castle').x,16,isl('castle').z); scene.add(cl);
+  const ml = new THREE.PointLight(0x38bdf8, 2.2, 50); ml.position.set(isl('magic').x,14,isl('magic').z); scene.add(ml);
+
+  const grid = new THREE.GridHelper(300, 60, 0x1e293b, 0x090d16); grid.position.y = -3.2; scene.add(grid);
+  const sg = new THREE.BufferGeometry(), sp = new Float32Array(1500*3);
+  for(let i=0;i<1500;i++){ sp[i*3]=rnd(-190,190); sp[i*3+1]=rnd(15,130); sp[i*3+2]=rnd(-190,190); }
+  sg.setAttribute('position', new THREE.BufferAttribute(sp,3));
+  const stars = new THREE.Points(sg, new THREE.PointsMaterial({color:0xfef08a,size:.4,transparent:true,opacity:.7})); stars.raycast = () => {}; scene.add(stars);
+
+  scene.add(tilesGroup); scene.add(bridgesGroup);
+  buildIslands(); buildBridges(); buildPlates();
+  raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
+
+  addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  const cv = renderer.domElement;
+  cv.addEventListener('pointermove', onMove);
+  let down = null;
+  cv.addEventListener('pointerdown', e => down = {x:e.clientX,y:e.clientY});
+  cv.addEventListener('pointerup', e => { if(down && Math.hypot(e.clientX-down.x,e.clientY-down.y) < 6) onClick(e); down = null; });
+}
+
+function buildIslands(){
+  const builders = {castle:bCastle,home:bHome,school:bSchool,magic:bMagic,dojo:bDojo,market:bMarket,farm:bFarm,restaurant:bRestaurant,
+                    church:bChurch,cemetery:bCemetery,forest:bForest,desert:bDesert,mountain:bMountain,square:bSquare};
+  ISL.forEach(d => {
+    const root = new THREE.Group(); root.position.set(d.x,0,d.z); root.userData = d;
+    add(root,new THREE.CylinderGeometry(R-.2,R+.3,1.6,6),M(0x1e2638,{metalness:.35}),0,-.8,0);
+    add(root,new THREE.CylinderGeometry(R-.4,R-.2,.3,6),M(d.color,{roughness:.5}),0,.15,0,false);
+    const rim = add(root,new THREE.TorusGeometry(R-.3,.08,8,6),M(0xd4af37,{metalness:.9,roughness:.2}),0,.32,0,false); rim.rotation.x = Math.PI/2; rim.rotation.z = Math.PI/6;
+    // 島底垂掛的碎石
+    for(let i=0;i<4;i++) cone(root,rnd(.6,1.2),rnd(1.5,2.6),0x1a2132,rnd(-3,3),-4.1,rnd(-3,3),5).rotation.x = Math.PI;
+    const mg = new THREE.Group(); mg.position.y = .3; root.add(mg);
+    builders[d.id](mg);
+    tilesGroup.add(root);
+  });
+}
+
+// ====== 14 座島嶼場景 ======
+function bCastle(g){
+  const stone=0xa0aec0, dark=0x718096, light=0xcfd8dc, Rw=5.0;
+  cyl(g,6.0,6.4,.2,0xd6c29a,0,0,0,28);
+  function wall(a0,a1,n,h){
+    for(let i=0;i<n;i++){
+      const a = a0+(a1-a0)*(i+.5)/n, len = 2*Rw*Math.sin((a1-a0)/n/2)*1.07;
+      const m = box(g,len,h,.55,stone,Math.sin(a)*Rw,0,Math.cos(a)*Rw); m.rotation.y = a;
+      const ar = box(g,len*.45,h*.55,.1,light,Math.sin(a)*(Rw+.3),h*.12,Math.cos(a)*(Rw+.3)); ar.rotation.y = a;
+      if(i%2===0){ const me = box(g,len*.8,.4,.35,dark,Math.sin(a)*Rw,h,Math.cos(a)*Rw); me.rotation.y = a; }
+    }
+  }
+  wall(-1.5,-.3,8,2.6); wall(.3,1.5,8,2.6); wall(-2.9,-1.55,6,2.6); wall(1.55,2.9,6,2.6); wall(-.1,.1,1,2.6);
+  [-1.45,-.9,.9,1.45,-2.9,2.9].forEach(a => { cyl(g,.68,.74,3.6,stone,Math.sin(a)*Rw,0,Math.cos(a)*Rw,16); cone(g,.85,1.1,dark,Math.sin(a)*Rw,3.6,Math.cos(a)*Rw,8); });
+  // 城門
+  [-1.1,1.1].forEach(gx => { cyl(g,.7,.78,4.1,stone,gx,0,Rw+.1,16); cone(g,.9,1.3,0x1d4ed8,gx,4.1,Rw+.1,12); flag(g,gx,5.2,Rw+.1,0xdc2626,.8,.5); });
+  box(g,1.6,1.3,.9,stone,0,2.8,Rw+.1); box(g,1.4,1.7,.2,0x3e2723,0,0,Rw+.35);
+  for(let i=0;i<5;i++) box(g,1.5,.05,.12,0x1f1308,0,.25+i*.3,Rw+.48);
+  for(const tx of [-.55,.55]){ cyl(g,.05,.06,.9,0x374151,tx,1.7,Rw+.6,6); sph(g,.13,0xfb923c,tx,2.7,Rw+.6,glow(0xfb923c)); }
+  // 內堡
+  const kg = new THREE.Group(); kg.position.set(0,0,-1.8); g.add(kg);
+  box(kg,4.8,3.8,3.4,stone,0,0,0);
+  for(let i=-3;i<=3;i++){ cyl(kg,.12,.14,1.4,light,i*.7,3.8,1.5,8); add(kg,new THREE.TorusGeometry(.35,.05,4,8,Math.PI),M(light),i*.7,5.2,1.5,false); }
+  box(kg,5.0,.25,3.6,dark,0,3.8,0);
+  cyl(kg,.8,.9,5.5,stone,-2.2,0,-1.2,16); cyl(kg,.95,.8,.5,dark,-2.2,5.5,-1.2,10); cone(kg,1.0,1.8,0x7f1d1d,-2.2,6.0,-1.2,12);
+  cyl(kg,1.0,1.1,6.8,stone,0,0,-1.2,16); cyl(kg,1.2,1.0,.6,dark,0,6.8,-1.2,12); cone(kg,1.2,2.3,0x1d4ed8,0,7.4,-1.2,12);
+  cyl(kg,.55,.65,5.8,light,2.4,0,.8,16); cone(kg,.65,2.2,0x1d4ed8,2.4,5.8,.8,16); sph(kg,.12,0xd4af37,2.4,8.1,.8,{metalness:.9});
+  flag(kg,0,9.7,-1.2,0xdc2626,1.2,.7); flag(kg,-2.2,7.8,-1.2,0x1d4ed8,.9,.5);
+  // 窗與火炬光
+  for(let i=-1;i<=1;i++) box(kg,.4,.7,.1,0xfde68a,i*1.3,2.0,1.72,glow(0xfde68a));
+  // 中庭小徑
+  for(let i=0;i<6;i++) box(g,1.1,.06,.8,0xe7e5e4,0,0,Rw-.6-i*.85);
+  [-4.2,4.2].forEach(x => { roundTree(g,x,3,.7,0x65a30d); flowers(g,x*.7,Rw+1.2,[0xf9a8d4,0xfef08a,0xffffff],6,.6); });
+  [-2.5,2.5].forEach(x => { npc(g,x,Rw+.9,0xb91c1c,0x78350f,0,1); }); npc(g,-.6,2.4,0x1d4ed8,0x1e293b,0,1); npc(g,.6,2.4,0x1d4ed8,0xf59e0b,0,1);
+  particles(g,40,{rx:4.5,ry:8,y0:0,color:0xfef08a,mode:'float'});
+  cornerLamps(g);
+}
+
+function bHome(g){
+  box(g,4.6,2.6,3.4,0xfef3c7,0,0,-.8);
+  const roof = cone(g,3.7,2.3,0xb91c1c,0,2.6,-.8,4); roof.rotation.y = Math.PI/4;
+  [-1.3,1.3].forEach(cx => box(g,.6,1.6,.6,0x7c2d12,cx,3.3,-.4));
+  box(g,.95,1.7,.12,0x78350f,0,0,.95); sph(g,.06,0xfacc15,.3,.9,1.03);
+  [-1.5,1.5].forEach(wx => { box(g,.9,.8,.1,0xfde68a,wx,1.1,.92,glow(0xfde68a)); box(g,1.0,.08,.14,0x78350f,wx,.95,.95); });
+  box(g,2.4,.2,1.3,0xa8a29e,0,0,1.5); [-1,1].forEach(x => cyl(g,.07,.07,1.6,0xf5f5f4,x,.2,2,8)); box(g,2.4,.15,1.3,0x92400e,0,1.8,1.5);
+  for(let i=0;i<5;i++) box(g,.9,.06,.7,0xd6d3d1,0,0,2.4+i*.75);
+  fenceLine(g,-5,5.4,-.9,5.4); fenceLine(g,.9,5.4,5,5.4); fenceLine(g,-5,5.4,-5,-3); fenceLine(g,5,5.4,5,-3);
+  flowers(g,-3,3,[0xf472b6,0xfacc15,0xffffff,0xc084fc],12,1.1); flowers(g,3,3,[0xef4444,0xfb923c,0xfef08a],12,1.1);
+  for(let i=0;i<4;i++) sph(g,.45,0x15803d,-3.6+i*.9,.4,-3.6).scale.y = .8;
+  [-3.6,-2.7,-1.8,-.9].forEach((x,i) => sph(g,.12,0xe11d48,x,.65,-3.2));
+  cyl(g,.8,.9,.8,0x94a3b8,3.4,0,-2.2,12); cyl(g,.55,.55,.05,0x38bdf8,3.4,.78,-2.2,12,glow(0x0ea5e9));
+  [-.7,.7].forEach(x => cyl(g,.05,.05,1.6,0x78350f,3.4+x,.8,-2.2,6)); const wr = box(g,1.8,.15,1.0,0x7c2d12,3.4,2.3,-2.2); wr.rotation.z = 0;
+  roundTree(g,-4.2,-1.5,1.1); roundTree(g,4.4,-3.6,.9,0x84cc16);
+  box(g,.4,.5,.3,0x3b82f6,-1.8,.9,5.2); cyl(g,.04,.04,.9,0x57534e,-1.8,0,5.2,6);
+  npc(g,1.6,2.9,0x0f172a,0xe5e7eb,Math.PI,1.05);
+  particles(g,18,{rx:.2,ry:3,y0:4.2,cx:-1.3,cz:-.4,mode:'rise',color:0xe5e7eb,size:.4,opacity:.45,speed:.6});
+  particles(g,16,{rx:4,ry:2,y0:.5,color:0xfef08a,mode:'float'});
+  cornerLamps(g);
+}
+
+function bSchool(g){
+  box(g,7,.35,5.4,0xe2e8f0,0,0,0); box(g,6.4,.3,4.8,0xf1f5f9,0,.35,0);
+  for(let x=-2.5;x<=2.5;x+=1){ [-2,2].forEach(z => { cyl(g,.22,.26,3.4,0xf8fafc,x,.65,z,16); box(g,.6,.2,.6,0xe2e8f0,x,4.05,z); }); }
+  box(g,6.6,.5,4.8,0xe2e8f0,0,4.25,0); const ped = cone(g,3.9,1.5,0xf1f5f9,0,4.75,2,4); ped.rotation.y = Math.PI/4; ped.scale.set(1.3,1,.35);
+  cyl(g,2.0,2.2,.5,0xf1f5f9,0,4.75,-.4,24); add(g,new THREE.SphereGeometry(1.8,20,12,0,6.3,0,Math.PI/2),M(0x1d4ed8,{metalness:.5,roughness:.3}),0,5.25,-.4); sph(g,.15,0xd4af37,0,7.2,-.4,{metalness:.9});
+  box(g,6,2.6,2.8,0xe7e5e4,0,.65,-.9);
+  for(let i=0;i<4;i++) box(g,.7,1.1,.1,0x1e3a8a,-2+i*1.35,1.2,.52,glow(0x1e3a8a));
+  box(g,1.2,2.2,.15,0x78350f,0,.65,.55);
+  // 噴泉
+  cyl(g,1.1,1.2,.5,0xcbd5e1,0,0,4.9,20); cyl(g,.9,.9,.1,0x38bdf8,0,.45,4.9,20,glow(0x0284c7)); cyl(g,.12,.18,1.1,0xe2e8f0,0,.4,4.9,8); sph(g,.2,0x7dd3fc,0,1.6,4.9,glow(0x38bdf8));
+  particles(g,24,{rx:.5,ry:1.4,y0:.8,cx:0,cz:4.9,color:0x7dd3fc,mode:'rise',size:.15,speed:.9});
+  [-3.4,3.4].forEach(x => { box(g,1.3,.12,.5,0x78350f,x,.4,4.6); box(g,.1,.4,.45,0x57534e,x-.5,0,4.6); box(g,.1,.4,.45,0x57534e,x+.5,0,4.6); });
+  pine(g,-5,-2,1,0x15803d); roundTree(g,5.2,-2.4,1,0x65a30d); roundTree(g,-5,4.5,.8,0x84cc16); roundTree(g,5,4.6,.8,0xa3e635);
+  flag(g,-3.2,4.5,2.7,0x7c3aed,1,.55); flag(g,3.2,4.5,2.7,0x7c3aed,1,.55);
+  npc(g,-1.8,5.5,0x1e3a8a,0x78350f,.3,.95); npc(g,1.9,5.8,0x7c3aed,0xf59e0b,-.3,.95); npc(g,3.8,3.6,0x0f766e,0x1e293b,-1,.95);
+  particles(g,16,{rx:4,ry:3,y0:3,color:0xfef08a,mode:'float'}); cornerLamps(g);
+}
+
+function bMagic(g){
+  cyl(g,3.4,3.6,.25,0x4c1d95,0,0,0,8); const rg = add(g,new THREE.TorusGeometry(3.2,.05,8,40),M(0xc084fc,glow(0xc084fc)),0,.3,0,false); rg.rotation.x = Math.PI/2;
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4; box(g,.3,.9,.3,0x6d28d9,Math.sin(a)*3.2,0,Math.cos(a)*3.2); sph(g,.13,0xe879f9,Math.sin(a)*3.2,1.05,Math.cos(a)*3.2,glow(0xe879f9)); }
+  cyl(g,1.2,2.0,7.0,0x4a044e,0,0,0,8,{metalness:.7,roughness:.3}); cyl(g,1.5,1.2,.4,0x701a75,0,7.0,0,8); cone(g,1.7,3.8,0xec4899,0,7.4,0,8,{metalness:.8});
+  for(let i=0;i<4;i++){ box(g,.35,.8,.12,0x93c5fd,Math.sin(i*1.57)*1.55,2.0+i*.8,Math.cos(i*1.57)*1.55,glow(0x93c5fd)).rotation.y = i*1.57; }
+  const r1 = add(g,new THREE.TorusGeometry(3.7,.12,16,48),M(0xd4af37,{metalness:.9}),0,5.4,0,false); r1.rotation.x = Math.PI/3; anim(() => r1.rotation.z += .012);
+  const r2 = add(g,new THREE.TorusGeometry(4.7,.1,16,48),M(0x38bdf8,{metalness:.9,...glow(0x0ea5e9)}),0,5.4,0,false); r2.rotation.y = Math.PI/4; anim(() => r2.rotation.x -= .014);
+  for(let i=0;i<5;i++){ const c = add(g,new THREE.OctahedronGeometry(.35,0),M(i%2?0xe879f9:0x67e8f9,glow(i%2?0xc026d3:0x0891b2)),Math.sin(i*1.26)*4.6,rnd(1.2,5),Math.cos(i*1.26)*4.6); bob(c,.3,1.2); anim(t => c.rotation.y = t); }
+  // 魔導書與小屋
+  box(g,1.8,1.4,1.6,0x581c87,-4.3,0,3.4); cone(g,1.6,1.1,0x9333ea,-4.3,1.4,3.4,4).rotation.y = Math.PI/4;
+  const bk = box(g,.6,.08,.45,0xfef3c7,3.6,1.8,3.8,glow(0xfde68a)); bob(bk,.2,1.4); box(g,.62,.04,.47,0x7c2d12,3.6,1.72,3.8);
+  for(let i=0;i<3;i++){ cyl(g,.09,.12,.35,0xd946ef,4.2-i*.5,0,-3.8+i*.4,8); sph(g,.2,0xf0abfc,4.2-i*.5,.55,-3.8+i*.4,glow(0xd946ef)); }
+  npc(g,-2.3,3.8,0x4c1d95,0xe9d5ff,.5,1).scale.y = 1.05; npc(g,2.4,4.2,0x1e1b4b,0x38bdf8,-.5,.95);
+  particles(g,70,{rx:5,ry:9,y0:0,color:0xf0abfc,mode:'float',size:.2}); particles(g,30,{rx:3,ry:6,y0:0,color:0x67e8f9,mode:'rise',size:.16,speed:.5});
+  cornerLamps(g,0xe879f9);
+}
+
+function bDojo(g){
+  cyl(g,4.4,4.5,.3,0xd97706,0,0,.6,24,{roughness:.95}); const rg = add(g,new THREE.TorusGeometry(3.4,.06,8,40),M(0xfef3c7),0,.35,.6,false); rg.rotation.x = Math.PI/2;
+  // 衛門
+  [-2.3,2.3].forEach(x => { cyl(g,.3,.35,3.6,0x991b1b,x,0,-3.4,12); }); box(g,5.6,.4,.7,0x7f1d1d,0,3.6,-3.4); const rf = cone(g,3.4,1.4,0x1f2937,0,4.0,-3.4,4); rf.rotation.y = Math.PI/4; rf.scale.set(1.2,1,.45);
+  box(g,3.6,.3,.5,0x991b1b,0,3.0,-3.4); box(g,1.6,2.3,.2,0x450a0a,0,0,-3.4);
+  // 武器架
+  box(g,2.4,.15,.5,0x78350f,-4.6,.9,-.5).rotation.y = 1.57; box(g,.1,1.0,.1,0x57534e,-4.6,0,.6); box(g,.1,1.0,.1,0x57534e,-4.6,0,-1.6);
+  for(let i=0;i<4;i++){ const sw = box(g,.08,1.3,.05,0xe2e8f0,-4.55,.9,-1.2+i*.55,{metalness:.9,roughness:.2}); sw.rotation.z = .1; box(g,.2,.06,.08,0xd4af37,-4.55,.85,-1.2+i*.55); }
+  // 木人樁與箭靶
+  for(let i=0;i<3;i++){ cyl(g,.12,.14,1.5,0x92400e,3.2,0,-.4+i*1.6,8); box(g,.9,.14,.14,0x92400e,3.2,1.0,-.4+i*1.6); sph(g,.2,0xd6a56a,3.2,1.65,-.4+i*1.6); }
+  for(let i=0;i<3;i++){ const t = cyl(g,.7,.7,.1,0xfef3c7,-2.6+i*2.6,.9,4.9,20); t.rotation.x = Math.PI/2; cyl(g,.45,.45,.11,0xdc2626,-2.6+i*2.6,.9,4.9,20).rotation.x = Math.PI/2; cyl(g,.15,.15,.12,0xfacc15,-2.6+i*2.6,.9,4.9,20).rotation.x = Math.PI/2; box(g,.1,.9,.1,0x78350f,-2.6+i*2.6,0,4.85); }
+  flag(g,-4.2,0,-3.6,0xdc2626,1.2,.8); flag(g,4.2,0,-3.6,0xdc2626,1.2,.8);
+  for(const x of [-3.9,3.9]){ cyl(g,.05,.06,1.2,0x374151,x,0,3.4,6); sph(g,.16,0xfb923c,x,1.35,3.4,glow(0xf97316)); }
+  npc(g,-1,.4,0xef4444,0x111827,.8,1).rotation.z = 0; npc(g,1,.2,0xf8fafc,0x7f1d1d,-.8,1); npc(g,0,-1.8,0x111827,0xe5e7eb,0,1.1);
+  rock(g,5.2,2.4,1.2,0x78716c); rock(g,-5,3.5,.9,0x78716c); pine(g,5.4,-1,.9,0x14532d);
+  particles(g,22,{rx:4,ry:2.5,y0:.3,color:0xfcd34d,mode:'float',size:.16}); cornerLamps(g,0xfb923c);
+}
+
+function bMarket(g){
+  box(g,1.9,6.0,1.9,0x78350f,0,0,-3.2); box(g,2.3,.3,2.3,0x57534e,0,6.0,-3.2); cone(g,1.7,1.8,0xb91c1c,0,6.3,-3.2,4).rotation.y = Math.PI/4;
+  const ck = cyl(g,.7,.7,.15,0xfef3c7,0,4.2,-2.2,24); ck.rotation.x = Math.PI/2; box(g,.08,.5,.06,0x1f2937,0,4.2,-2.12); box(g,.4,.07,.06,0x1f2937,.1,4.2,-2.12);
+  box(g,.5,.7,.1,0xfde68a,0,2.2,-2.24,glow(0xfde68a)); sph(g,.16,0xd4af37,0,6.6+1.3,-3.2,{metalness:.9});
+  const cols = [0xef4444,0x3b82f6,0x10b981,0xf59e0b,0xa855f7,0xec4899];
+  [-4.2,-1.8,1.8,4.2].forEach((x,i) => stall(g,x,i%2?1.6:.2,cols[i],0));
+  [-3.2,0,3.2].forEach((x,i) => stall(g,x,3.9,cols[i+3],Math.PI));
+  for(let i=0;i<4;i++) box(g,.6,.6,.6,0x92400e,-4.8+i*.1,i*.62,-1.6+i*.05);
+  [[-5,-2.4],[5,-2.2],[4.8,1.2]].forEach(([x,z]) => { cyl(g,.35,.35,.7,0x78350f,x,0,z,10); cyl(g,.37,.37,.06,0x57534e,x,.3,z,10); });
+  const cart = box(g,1.6,.5,1.0,0x92400e,5,.35,4.2); [-.6,.6].forEach(w => { cyl(g,.35,.35,.1,0x57534e,5+w,0,4.8,12).rotation.x = Math.PI/2; });
+  // 彩旗串
+  for(let i=0;i<10;i++){ const t = i/9; const f = new THREE.Mesh(new THREE.ConeGeometry(.16,.4,3),M([0xef4444,0xfacc15,0x3b82f6,0x22c55e][i%4],{side:THREE.DoubleSide})); f.position.set(-5+t*10,3.4-Math.sin(t*Math.PI)*.5,2.5); f.rotation.z = Math.PI; g.add(f); }
+  [-5,5].forEach(x => cyl(g,.06,.08,3.5,0x57534e,x,0,2.5,6));
+  [[-2.4,2.6,0x7c3aed],[0,2.4,0x15803d],[2.6,2.9,0xb91c1c],[-5,3.2,0x0f766e],[5.4,2.2,0x1d4ed8]].forEach(([x,z,c],i) => npc(g,x,z,c,[0x92400e,0xf59e0b,0x1e293b,0xdb2777,0x78350f][i],rnd(-3,3),1));
+  lamp(g,-5.6,.5); lamp(g,5.8,.5); lamp(g,0,5.2); roundTree(g,-5.8,-3.4,.8,0x65a30d);
+  particles(g,16,{rx:5,ry:3,y0:1,color:0xfef08a,mode:'float'}); cornerLamps(g);
+}
+
+function bFarm(g){
+  cyl(g,1.1,1.7,4.6,0xf1f5f9,-2.4,0,-.4,12); cone(g,1.5,1.5,0x78350f,-2.4,4.6,-.4,8); box(g,.5,.9,.1,0x1e3a8a,-2.4,2.2,.75); box(g,.9,1.3,.1,0x78350f,-2.4,0,1.0);
+  const blades = new THREE.Group(); blades.position.set(-2.4,4.2,1.3); g.add(blades);
+  for(let i=0;i<4;i++){ const h = new THREE.Group(); h.rotation.z = i*Math.PI/2; const bl = box(h,.5,2.8,.06,0xfef08a,0,.2,0); box(h,.08,2.8,.1,0x78350f,0,.2,0); blades.add(h); }
+  anim(() => blades.rotation.z += .018); sph(g,.25,0x57534e,-2.4,4.2,1.2);
+  box(g,3.4,2.3,2.6,0x991b1b,2.6,0,-1.2); const br = cone(g,2.6,1.4,0x57534e,2.6,2.3,-1.2,4); br.rotation.y = Math.PI/4; br.scale.set(1,1,.8);
+  box(g,1.3,1.6,.1,0xfef3c7,2.6,0,.12); box(g,.14,1.6,.12,0x78350f,2.6,0,.15);
+  for(let i=0;i<3;i++){ cyl(g,.55,.55,.7,0xfbbf24,-.2+i*1.2,0,3.4,10); cone(g,.55,.45,0xd97706,-.2+i*1.2,.7,3.4,10); }
+  // 麥田
+  for(let r=0;r<5;r++) for(let c=0;c<10;c++) box(g,.12,.7+Math.random()*.2,.12,0xeab308,-4.4+c*.5,0,2.0+r*.5+3.8-3.8,{roughness:1});
+  fenceLine(g,-5,-4,5,-4); fenceLine(g,5,-4,5,5); fenceLine(g,-5,5.2,5,5.2); fenceLine(g,-5,-4,-5,5.2);
+  // 稻草人與羊
+  cyl(g,.05,.05,1.6,0x78350f,4,0,3.2,6); box(g,1.2,.08,.08,0x78350f,4,1.2,3.2); sph(g,.25,0xfde68a,4,1.75,3.2); cone(g,.3,.4,0x92400e,4,1.9,3.2,8);
+  for(let i=0;i<4;i++){ const sh = new THREE.Group(); sh.position.set(-4+i*.9,0,-2.6+(i%2)*.7); g.add(sh); sph(sh,.32,0xf8fafc,0,.55,0).scale.set(1.2,.9,.9); sph(sh,.15,0x1f2937,.35,.6,0); [-.15,.15].forEach(lx => cyl(sh,.03,.03,.3,0x1f2937,lx,0,.1,5)); bob(sh,.03,2+i*.3); }
+  for(let i=0;i<3;i++){ cyl(g,.45,.45,.6,0xd6b77a,-4.6+i*1.1,0,-3.4,10); }
+  roundTree(g,5.2,-2.4,1,0x4d7c0f); roundTree(g,-5.4,4,.9,0x65a30d); flowers(g,0,-3,[0xfacc15,0xffffff],10,.9);
+  npc(g,1.2,2.2,0x2563eb,0xfacc15,.5,1); npc(g,-1.5,4.6,0xbe123c,0x78350f,-.5,1);
+  particles(g,24,{rx:5,ry:3,y0:.4,color:0xfde68a,mode:'float',size:.14}); cornerLamps(g,0xfde047);
+}
+
+function bRestaurant(g){
+  box(g,4.6,3.0,3.4,0xd97706,-.8,0,-2.4); const rf = cone(g,3.9,2.2,0x991b1b,-.8,3.0,-2.4,4); rf.rotation.y = Math.PI/4;
+  box(g,.7,1.6,.6,0x7c2d12,.6,3.4,-2.6); cyl(g,.8,.8,3,0x92400e,3.2,0,-2.8,10); cone(g,1.0,.9,0x78350f,3.2,3,-2.8,10);
+  box(g,1.0,1.8,.12,0x451a03,-.8,0,-.62); [-2,.4].forEach(x => box(g,.9,.9,.1,0xfde68a,x,1.2,-.64,glow(0xfde68a)));
+  box(g,2.4,.9,.12,0x7c2d12,-.8,2.2,-.55); box(g,2.0,.5,.05,0xfef3c7,-.8,2.3,-.5);
+  const umb = [0xef4444,0x3b82f6,0xfacc15,0x22c55e];
+  [[-3.6,2],[-.8,3],[2,2.2],[4.2,4.2]].forEach(([x,z],i) => {
+    cyl(g,.55,.55,.08,0x78350f,x,.9,z,14); cyl(g,.08,.08,.9,0x57534e,x,0,z,6); cyl(g,.04,.04,2.3,0xf1f5f9,x,0,z,6);
+    add(g,new THREE.ConeGeometry(1.2,.6,8),M(umb[i],{side:THREE.DoubleSide}),x,2.6,z);
+    [[.8,0],[-.8,0]].forEach(([dx]) => { cyl(g,.18,.2,.1,0x92400e,x+dx,.45,z+.2,8); });
+    sph(g,.1,0xfef3c7,x,1.05,z,glow(0xfde68a));
+  });
+  // 燈串
+  for(let i=0;i<12;i++){ const t = i/11; sph(g,.08,[0xfef08a,0xfda4af,0x93c5fd][i%3],-5+t*10,3.4-Math.sin(t*Math.PI)*.45,3.6,glow(0xfef08a)); }
+  [-5,5].forEach(x => cyl(g,.06,.08,3.5,0x57534e,x,0,3.6,6));
+  // 酒桶、葡萄藤
+  [[-4.6,-3.8],[-4.6,-2.8],[-3.9,-3.3]].forEach(([x,z]) => { cyl(g,.4,.4,.8,0x78350f,x,0,z,10); cyl(g,.41,.41,.06,0x374151,x,.25,z,10); });
+  for(let i=0;i<5;i++){ cyl(g,.05,.05,1.8,0x78350f,2+i*.8,0,.4,5); sph(g,.35,0x4d7c0f,2+i*.8,1.6,.4); for(let k=0;k<3;k++) sph(g,.1,0x7e22ce,2+i*.8+rnd(-.2,.2),1.2,.7); }
+  npc(g,-2.4,3.2,0xf8fafc,0x1f2937,3,1); npc(g,1,3.6,0x7f1d1d,0xf59e0b,2.5,1); npc(g,4.6,3.2,0x0f172a,0xe5e7eb,3.5,1);
+  particles(g,14,{rx:.2,ry:2.6,y0:4.3,cx:.6,cz:-2.6,mode:'rise',color:0xe5e7eb,size:.4,opacity:.4,speed:.6});
+  particles(g,18,{rx:5,ry:3,y0:.8,color:0xfdba74,mode:'float',size:.16}); cornerLamps(g,0xfb923c);
+}
+
+function bChurch(g){
+  box(g,3.6,4.4,6,0xf1f5f9,0,0,-.4); const rf = cone(g,3.0,2.0,0x475569,0,4.4,-.4,4); rf.rotation.y = Math.PI/4; rf.scale.set(1,1,1.5);
+  [-1.5,1.5].forEach(x => { box(g,1.4,7.4,1.4,0xf1f5f9,x,0,2.6); cone(g,1.15,3.4,0x06b6d4,x,7.4,2.6,4,{metalness:.8}).rotation.y = Math.PI/4; box(g,.5,.9,.1,0x1e3a8a,x,5.2,3.32,glow(0x1d4ed8)); sph(g,.1,0xd4af37,x,10.9,2.6,{metalness:.9}); });
+  const rw = cyl(g,.9,.9,.15,0x6366f1,0,3.1,3.05,24,glow(0x6366f1)); rw.rotation.x = Math.PI/2; cyl(g,.45,.45,.16,0xfbbf24,0,3.1,3.05,24,glow(0xf59e0b)).rotation.x = Math.PI/2;
+  box(g,1.2,2.3,.14,0x78350f,0,0,3.15); box(g,.1,1.2,.1,0xd4af37,0,5.0,-3.2,{metalness:.9}); box(g,.6,.1,.1,0xd4af37,0,5.7,-3.2,{metalness:.9});
+  [-1.8,1.8].forEach(x => { for(let i=0;i<3;i++) box(g,.5,1.5,.1,[0x6366f1,0xec4899,0xfbbf24][i],x*1.0+(x>0?.1:-.1),1.4,-2.2+i*1.6,glow([0x4338ca,0xbe185d,0xd97706][i])).rotation.y = 1.57; });
+  // 聖泉與花園
+  cyl(g,1.2,1.3,.45,0xcbd5e1,0,0,5.3,20); cyl(g,1,1,.1,0x67e8f9,0,.42,5.3,20,glow(0x06b6d4)); cyl(g,.15,.2,1.2,0xf1f5f9,0,.4,5.3,8); sph(g,.2,0xa5f3fc,0,1.7,5.3,glow(0x22d3ee));
+  [[-4,2],[4,2],[-4,-2],[4,-2]].forEach(([x,z]) => { box(g,.6,1.1,.6,0x15803d,x,0,z,{roughness:1}); sph(g,.5,0x16a34a,x,1.3,z); });
+  [-3.4,3.4].forEach(x => { cyl(g,.05,.06,1.2,0x57534e,x,0,4.3,6); sph(g,.12,0xfde68a,x,1.35,4.3,glow(0xfde68a)); });
+  // 聖光柱
+  const beam = add(g,new THREE.CylinderGeometry(.2,1.8,10,16,1,true),new THREE.MeshBasicMaterial({color:0xfef9c3,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false}),0,6,5.3,false); beam.raycast = () => {};
+  particles(g,40,{rx:2,ry:9,y0:0,cz:5.3,color:0xfef9c3,mode:'rise',size:.22,speed:.7});
+  npc(g,-1.2,6.3,0x1e293b,0xf8fafc,0,1); npc(g,1.6,6.1,0xf8fafc,0x78350f,0,.9); npc(g,3.8,3.6,0x1e3a8a,0xe5e7eb,-1,1);
+  pine(g,-5,-4,1,0x14532d); pine(g,5,-4,1,0x14532d); cornerLamps(g,0x67e8f9);
+}
+
+function bCemetery(g){
+  // 鐵門
+  [-2.4,-1.2,0,1.2,2.4].forEach((x,i) => { cyl(g,.06,.06,2.4+(i%2)*.3,0x111827,x,0,5.2,6); cone(g,.1,.3,0x111827,x,2.4+(i%2)*.3,5.2,5); });
+  [-3.3,3.3].forEach(x => { box(g,.7,3.0,.7,0x475569,x,0,5.2); sph(g,.25,0x94a3b8,x,3.2,5.2); });
+  fenceLine(g,-6,5.2,-3.3,5.2,0x111827); fenceLine(g,3.3,5.2,6,5.2,0x111827);
+  // 靈廟
+  box(g,3.4,2.5,3.6,0x475569,0,0,-2.2,{roughness:.95}); const rf = cone(g,2.9,1.8,0x334155,0,2.5,-2.2,4); rf.rotation.y = Math.PI/4;
+  for(const x of [-1.4,1.4]) cyl(g,.18,.22,2.5,0x64748b,x,0,-.3,8); box(g,3.3,.3,.6,0x64748b,0,2.5,-.3);
+  box(g,1.1,1.8,.12,0x0f172a,0,0,-.4); sph(g,.35,0x38bdf8,0,3.0,-.4,glow(0x0ea5e9));
+  // 墓碑
+  for(let i=0;i<9;i++){ const x = -4.8+(i%3)*1.2+(i>5?7.5:0)*0, z = 0.6+Math.floor(i/3)*1.3; const gx = (i<5?-4.6:3.0)+(i%3)*1.2; box(g,.55,.8+(i%2)*.3,.15,0x64748b,gx,0,z+(i>4?-.5:0)); cyl(g,.28,.28,.15,0x64748b,gx,.8+(i%2)*.3,z+(i>4?-.5:0),12).rotation.x = Math.PI/2; box(g,.3,.05,.17,0x94a3b8,gx,.5,z+(i>4?-.5:0)); }
+  cone(g,.8,.3,0x1c1917,-3.5,0,3,6); cone(g,.8,.3,0x1c1917,3.8,0,2.8,6);
+  // 枯木
+  [[-5,-1,1.1],[5,-2.5,1.3],[-4.8,-4,.9]].forEach(([x,z,s]) => { cyl(g,.12*s,.28*s,2.6*s,0x2d1b0e,x,0,z,6); [[.5,.5],[-.5,.7],[.3,-.5]].forEach(([bx,bz],k) => { const b = cyl(g,.04,.08,1.2*s,0x2d1b0e,x+bx*.5*s,1.8*s,z+bz*.3*s,5); b.rotation.z = bx*.9; b.rotation.x = bz*.5; }); });
+  // 鬼火
+  for(let i=0;i<7;i++){ const o = sph(g,.2,0x7dd3fc,Math.cos(i*.9)*4,rnd(.8,2.4),Math.sin(i*.9)*3+1,glow(0x38bdf8)); o.material = new THREE.MeshBasicMaterial({color:0x7dd3fc,transparent:true,opacity:.8}); bob(o,.35,1+i*.2); anim(t => { o.position.x += Math.sin(t+i)*.004; }); }
+  const gl = new THREE.PointLight(0x38bdf8,2.2,10); gl.position.set(0,2.5,2); g.add(gl);
+  cyl(g,.05,.06,1.3,0x374151,-1.4,0,3.9,6); sph(g,.16,0xfb923c,-1.4,1.5,3.9,glow(0xf97316));
+  npc(g,2.2,3.6,0x1c1917,0xe5e7eb,3,1.05);
+  particles(g,60,{rx:6,ry:1.2,y0:.1,color:0x94a3b8,mode:'float',size:.5,opacity:.22}); particles(g,20,{rx:5,ry:5,y0:.5,color:0x7dd3fc,mode:'float',size:.16});
+  cornerLamps(g,0x38bdf8);
+}
+
+function bForest(g){
+  cyl(g,1.0,1.9,4.6,0x451a03,0,0,-.4,12); [[1.4,.4],[-1.4,.2],[.2,1.5]].forEach(([x,z]) => { const r = cyl(g,.25,.5,1.6,0x451a03,x,0,z-.4,6); r.rotation.z = x*.4; r.rotation.x = z*.2; });
+  sph(g,3.6,0x059669,0,6.6,-.4).scale.set(1.05,.85,1.05); sph(g,2.5,0x10b981,1.9,7.6,.5); sph(g,2.3,0x047857,-2.1,7.2,-1.2); sph(g,2.0,0x34d399,0,8.6,-.4);
+  for(let i=0;i<10;i++){ const a = i*.63; sph(g,.12,0xfef08a,Math.sin(a)*3.2,rnd(4.8,7.2),Math.cos(a)*3.2-.4,glow(0xfde047)); }
+  // 蕈菇仙子環
+  for(let i=0;i<9;i++){ const a = i*.7, x = Math.sin(a)*3.1+.5, z = Math.cos(a)*1.9+3.6, s = rnd(.7,1.2); cyl(g,.1*s,.13*s,.5*s,0xfef3c7,x,0,z,8); add(g,new THREE.SphereGeometry(.38*s,12,8,0,6.3,0,1.6),M(i%2?0xec4899:0x38bdf8,glow(i%2?0xbe185d:0x0284c7)),x,.5*s,z,false); }
+  // 聖泉
+  cyl(g,1.3,1.4,.12,0x0e7490,-3.6,0,-3.6,24); cyl(g,1.1,1.1,.14,0x22d3ee,-3.6,.04,-3.6,24,glow(0x06b6d4)); [[-4.6,-4.1],[-2.7,-4.6],[-3.4,-2.6]].forEach(([x,z]) => rock(g,x,z,.6,0x64748b));
+  particles(g,16,{rx:1,ry:2,y0:.3,cx:-3.6,cz:-3.6,color:0x67e8f9,mode:'rise',size:.16,speed:.5});
+  [[-5,1.5,1.2],[5,-2,1.3],[4.8,2.4,.9],[-4.2,-1,1],[3,-4.6,1]].forEach(([x,z,s],i) => i%2?roundTree(g,x,z,s,0x16a34a):pine(g,x,z,s,0x065f46));
+  for(let i=0;i<7;i++) sph(g,.1,[0xf9a8d4,0xfef08a,0xc4b5fd][i%3],rnd(-4,4),.2,rnd(-1,5));
+  rock(g,-1.5,2.5,.7,0x6b7280); rock(g,2,-3.2,.6,0x6b7280);
+  particles(g,90,{rx:6,ry:8,y0:.3,color:0xfef08a,mode:'float',size:.2,opacity:.9}); particles(g,30,{rx:5,ry:7,y0:.5,color:0x86efac,mode:'float',size:.16});
+  cornerLamps(g,0x86efac);
+}
+
+function bDesert(g){
+  for(let i=0;i<6;i++) box(g,7.2-i*1.1,.7,7.2-i*1.1,i%2?0xd6a35a:0xc08a3e,-.8,i*.7,-1.6);
+  const cap = cone(g,.7,.9,0xfacc15,-.8,4.2,-1.6,4,{metalness:.9,roughness:.2}); cap.rotation.y = Math.PI/4;
+  box(g,1.3,1.4,.3,0x3f2a14,-.8,0,2.1); for(let i=0;i<6;i++) box(g,1.8-i*.1,.15,.35,0xc08a3e,-.8,i*.1,2.35+i*.05);
+  [[3.6,2.4],[4.8,-.6]].forEach(([x,z]) => { cyl(g,.25,.5,5.4,0xd4af37,x,0,z,4,{metalness:.8,roughness:.3}).rotation.y = Math.PI/4; cone(g,.28,.5,0xfef08a,x,5.4,z,4,{metalness:.9}).rotation.y = Math.PI/4; });
+  // 斷柱遺跡
+  [[-4.6,3.4,2],[-3.6,4.2,1.2],[-5.1,1.8,.7]].forEach(([x,z,h]) => { cyl(g,.35,.4,h,0xe5c99a,x,0,z,10); if(h>1.5) box(g,.9,.25,.9,0xd6b988,x,h,z); });
+  // 綠洲
+  cyl(g,1.3,1.4,.1,0x0e7490,4.4,0,-4.2,20); cyl(g,1.1,1.1,.12,0x22d3ee,4.4,.03,-4.2,20,glow(0x0891b2));
+  [[3.2,-4.8,.1],[5.4,-3.6,-.1],[4.4,-5.3,.15]].forEach(([x,z,t]) => { const tr = cyl(g,.1,.16,2.2,0x92400e,x,0,z,6); tr.rotation.z = t; for(let k=0;k<6;k++){ const lf = cone(g,.18,1.4,0x15803d,x+Math.sin(k*1.05)*.5,2.1,z+Math.cos(k*1.05)*.5,4); lf.rotation.z = Math.sin(k*1.05)*1.1; lf.rotation.x = -Math.cos(k*1.05)*1.1; } });
+  // 沙丘
+  [[-5,-4,2.2],[5.4,4.4,2.6],[-1,5.4,1.8]].forEach(([x,z,s]) => sph(g,s,0xe6b86a,x,-.4,z,{roughness:1}).scale.y = .35);
+  box(g,.9,.6,.6,0x78350f,-3.4,0,-.4); box(g,.92,.15,.62,0xd4af37,-3.4,.6,-.4,{metalness:.9,roughness:.25}); sph(g,.1,0xfef08a,-3.4,.85,-.1,glow(0xfacc15));
+  for(let i=0;i<3;i++) cone(g,.3,.9,0xc08a3e,-5+i*.7,0,-2.2+i*.6,4);
+  npc(g,2.3,4,0xf5f5f4,0x1c1917,2.5,1); npc(g,-2.3,4.6,0xb45309,0x78350f,3,1);
+  particles(g,70,{rx:6.5,ry:3,y0:.2,color:0xfcd34d,mode:'float',size:.14,opacity:.55}); particles(g,20,{rx:3,ry:3.5,y0:.5,cx:-.8,cz:-1.6,color:0xfef08a,mode:'rise',size:.18});
+  cornerLamps(g,0xfb923c);
+}
+
+function bMountain(g){
+  const ice = {roughness:.25,metalness:.35};
+  [[0,0,4.6,7.4,0xe0f2fe],[-3.4,-1.2,2.8,4.6,0xbae6fd],[3.2,-1.8,3.0,5.2,0xe0f2fe],[2.2,2.8,1.8,2.8,0xf0f9ff],[-2.6,3.0,1.6,2.4,0xf0f9ff]].forEach(([x,z,r,h,c]) => { cone(g,r,h,c,x,0,z,5,ice); cone(g,r*.45,h*.28,0xffffff,x,h*.82,z,5); });
+  // 發光藍晶簇
+  [[2.4,1.0,1.6],[-1.6,2.3,1.3],[4.4,3.0,1],[-4.4,1.0,1.2],[0.6,4.4,1.1]].forEach(([x,z,s],i) => {
+    for(let k=0;k<3;k++){ const c = add(g,new THREE.OctahedronGeometry(.5*s,0),new THREE.MeshStandardMaterial({color:0x38bdf8,emissive:0x0284c7,emissiveIntensity:.8,roughness:.1,metalness:.9,transparent:true,opacity:.92}),x+k*.3-.3,.6*s+k*.25,z+k*.15); c.scale.y = 2.4; c.rotation.z = (k-1)*.3; }
+  });
+  const cl = new THREE.PointLight(0x38bdf8,2.2,12); cl.position.set(2.4,2,1.2); g.add(cl);
+  // 礦坑入口
+  box(g,1.4,1.6,.4,0x1e293b,-1.4,0,4.6); box(g,.14,1.7,.4,0x78350f,-2.2,0,4.6); box(g,.14,1.7,.4,0x78350f,-.6,0,4.6); box(g,1.7,.16,.4,0x78350f,-1.4,1.6,4.6);
+  box(g,.8,.4,.5,0x57534e,-1.4,0,5.4); box(g,.6,.06,.5,0x94a3b8,-1.4,.4,5.4);
+  // 冰橋
+  const ib = box(g,3,.18,.8,0xbae6fd,4,.9,4.2,{transparent:true,opacity:.7,roughness:.1,metalness:.5}); ib.rotation.y = -.4;
+  pine(g,-4.8,-3.6,1,0x0f766e); pine(g,4.8,-3.8,1.1,0x0f766e); pine(g,5,4.4,.9,0x14532d); [[-4.8,-3.6],[4.8,-3.8],[5,4.4]].forEach(([x,z],i) => cone(g,.5,.4,0xffffff,x,1.7,z,8));
+  rock(g,-5,2.6,1.1,0x94a3b8); rock(g,1.2,5.4,.8,0xcbd5e1); npc(g,-3.2,5.2,0x1d4ed8,0xf8fafc,.6,1);
+  particles(g,140,{rx:6.5,ry:10,y0:.2,color:0xffffff,mode:'fall',size:.2,opacity:.9,speed:.9}); particles(g,20,{rx:4,ry:6,y0:.5,color:0x7dd3fc,mode:'float',size:.16});
+  cornerLamps(g,0x7dd3fc);
+}
+
+function bSquare(g){
+  cyl(g,3.7,3.9,1.2,0xf1f5f9,0,0,-2.0,20); cone(g,4.6,3.4,0xa855f7,0,3.2,-2,12);
+  cyl(g,.08,.08,1.2,0xd4af37,0,6.5,-2,6); sph(g,.16,0xfacc15,0,7.8,-2,glow(0xfacc15)); flag(g,0,6.6,-2,0xfacc15,1.1,.6);
+  for(let i=0;i<12;i++){ const a = i*Math.PI/6; cyl(g,.07,.07,3,0xf8fafc,Math.sin(a)*3.9,1.2,-2+Math.cos(a)*3.9,6); }
+  box(g,1.6,2.0,.1,0x4c1d95,0,.0,1.9,{}); // 帳篷入口
+  // 頒獎台
+  box(g,1.4,1.1,1.2,0xfacc15,0,0,3.6,{metalness:.6,roughness:.3}); box(g,1.3,.75,1.2,0xe5e7eb,-1.4,0,3.6,{metalness:.6}); box(g,1.3,.5,1.2,0xd97706,1.4,0,3.6,{metalness:.5});
+  // 旋轉木馬
+  const cr = new THREE.Group(); cr.position.set(-4.4,0,2.6); g.add(cr); cyl(cr,1.2,1.3,.3,0xf1f5f9,0,0,0,16); cyl(cr,.15,.15,2.2,0xd4af37,0,.3,0,8); cone(cr,1.5,.9,0xec4899,0,2.4,0,12);
+  for(let i=0;i<4;i++){ const a = i*Math.PI/2; cyl(cr,.05,.05,1.6,0xd4af37,Math.sin(a)*.8,.5,Math.cos(a)*.8,6); box(cr,.4,.3,.7,[0xfb7185,0xfacc15,0x60a5fa,0x4ade80][i],Math.sin(a)*.8,.9+(i%2)*.2,Math.cos(a)*.8); }
+  anim(() => cr.rotation.y += .01);
+  // 攤位與彩旗
+  stall(g,4.4,2.6,0xef4444,-.5); stall(g,4.6,-.6,0x22c55e,-1.2); stall(g,-4.6,-.5,0x3b82f6,1.2);
+  for(let i=0;i<14;i++){ const t = i/13; const f = new THREE.Mesh(new THREE.ConeGeometry(.16,.4,3),M([0xef4444,0xfacc15,0x3b82f6,0x22c55e,0xec4899][i%5],{side:THREE.DoubleSide})); f.position.set(-5.2+t*10.4,3.6-Math.sin(t*Math.PI)*.6,4.6); f.rotation.z = Math.PI; g.add(f); }
+  [-5.2,5.2].forEach(x => cyl(g,.06,.08,3.8,0x57534e,x,0,4.6,6));
+  flag(g,-2.8,0,5.2,0xa855f7,.9,.5); flag(g,2.8,0,5.2,0xa855f7,.9,.5);
+  for(let i=0;i<8;i++) npc(g,rnd(-3.5,3.5),rnd(4.4,6),[0xef4444,0x3b82f6,0x22c55e,0xf59e0b,0xec4899,0x8b5cf6][i%6],[0x78350f,0xf59e0b,0x1e293b,0xdb2777][i%4],rnd(-.6,.6),rnd(.9,1.05));
+  // 煙火
+  const cols = [0xf472b6,0xfacc15,0x67e8f9,0xa78bfa]; cols.forEach((c,i) => particles(g,40,{rx:1.3+i*.2,ry:5,y0:3.5,cx:-3+i*2,cz:-3,color:c,mode:'float',size:.26,opacity:.9}));
+  particles(g,40,{rx:5,ry:7,y0:3,color:0xfef08a,mode:'rise',size:.18,speed:.8}); lamp(g,-5.8,1); lamp(g,5.8,1); cornerLamps(g,0xf0abfc);
+}
+
+// ---- 橋樑 ----
+function buildBridges(){
+  const pairs = [['castle','home'],['castle','school'],['castle','dojo'],['castle','mountain'],['castle','forest'],['castle','desert'],['home','magic'],['home','market'],['home','square'],
+    ['school','magic'],['dojo','market'],['magic','farm'],['market','restaurant'],['magic','church'],['market','cemetery'],['school','forest'],['school','church'],['dojo','desert'],['dojo','cemetery'],['farm','square'],['restaurant','square']];
+  const bm = M(0x64748b,{roughness:.7}), gm = M(0xd4af37,{metalness:.9});
+  pairs.forEach(([a,b]) => {
+    const A1 = isl(a), B1 = isl(b), vA = new THREE.Vector3(A1.x,0,A1.z), vB = new THREE.Vector3(B1.x,0,B1.z);
+    const dist = vA.distanceTo(vB); if(dist > 21) return;
+    const len = Math.max(2, dist-(R*2-1.6)), br = new THREE.Group();
+    br.position.copy(vA.clone().add(vB).multiplyScalar(.5)); br.lookAt(vB);
+    add(br,new THREE.BoxGeometry(2.0,.4,len),bm,0,.2,0,false).receiveShadow = true;
+    for(const lx of [-1.05,1.05]){ add(br,new THREE.BoxGeometry(.12,.35,len),gm,lx,.55,0,false); for(let k=-1;k<=1;k+=1){ add(br,new THREE.CylinderGeometry(.06,.08,1.1,8),gm,lx,.8,k*len*.38,false); add(br,new THREE.SphereGeometry(.12,8,8),new THREE.MeshBasicMaterial({color:0xfef08a}),lx,1.45,k*len*.38,false); } }
+    bridgesGroup.add(br);
+  });
+}
+
+// ---- 島名門牌 ----
+const plates = {};
+function buildPlates(){
+  const wrap = document.getElementById('plates');
+  ISL.forEach(d => { const el = document.createElement('div'); el.className = 'plate'; el.textContent = `${d.icon} ${d.name}`; wrap.appendChild(el); plates[d.id] = el; });
+}
+function updatePlates(){
+  ISL.forEach(d => {
+    const v = new THREE.Vector3(d.x, 9.5, d.z).project(camera), el = plates[d.id];
+    if(v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1){ el.style.display = 'none'; return; }
+    el.style.display = 'block'; el.style.left = ((v.x+1)/2*innerWidth)+'px'; el.style.top = ((1-v.y)/2*innerHeight)+'px';
+    const dist = camera.position.distanceTo(new THREE.Vector3(d.x,2,d.z));
+    el.style.opacity = dist > 120 ? .55 : 1;
+  });
+}
+
+// ============================================================================
+// 5. 角色模型：童年 / 青少年 / 成年 / 幫派結局造型
+// ============================================================================
+let pawn = null, pawnParts = {};
+
+function faceTex(eyeHex, stage, gang){
+  const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d');
+  x.fillStyle = '#ffefe8'; x.fillRect(0,0,512,512);
+  x.save(); x.translate(256,0); x.scale(.5,1);
+  [-150,150].forEach(bx => { const gr = x.createRadialGradient(bx,335,5,bx,335,60); gr.addColorStop(0,'rgba(251,113,133,.38)'); gr.addColorStop(1,'rgba(251,113,133,0)'); x.fillStyle = gr; x.beginPath(); x.arc(bx,335,60,0,7); x.fill(); });
+  const ew = stage==='child'?58:stage==='teen'?50:46, eh = stage==='child'?42:35, col = hex(eyeHex);
+  [-1,1].forEach(sd => {
+    x.save(); x.translate(sd*108,272);
+    x.fillStyle = '#fff'; x.beginPath(); x.ellipse(0,0,ew,eh,0,0,7); x.fill();
+    x.save(); x.beginPath(); x.ellipse(0,0,ew,eh,0,0,7); x.clip();
+    x.fillStyle = col; x.beginPath(); x.arc(0,0,eh*1.05,0,7); x.fill();
+    x.fillStyle = 'rgba(0,0,0,.28)'; x.beginPath(); x.arc(0,eh*.35,eh*.9,0,7); x.fill();
+    x.fillStyle = '#120a1a'; x.beginPath(); x.arc(0,0,eh*.45,0,7); x.fill();
+    x.fillStyle = '#fff'; x.beginPath(); x.arc(-eh*.3,-eh*.35,eh*.22,0,7); x.fill(); x.beginPath(); x.arc(eh*.3,eh*.3,eh*.12,0,7); x.fill();
+    x.restore();
+    x.strokeStyle = '#1f1720'; x.lineWidth = gang?8:5.5; x.lineCap = 'round';
+    x.beginPath(); x.ellipse(0,0,ew,eh,0,Math.PI,2*Math.PI); x.stroke();
+    if(gang || stage==='adult'){ x.lineWidth = 5; x.beginPath(); x.moveTo(sd*ew,-2); x.lineTo(sd*(ew+(gang?30:16)),-(gang?22:10)); x.stroke(); }
+    x.lineWidth = 3; for(let k=0;k<3;k++){ x.beginPath(); x.moveTo(sd*(-ew*.2+k*ew*.45),-eh*.95); x.lineTo(sd*(-ew*.2+k*ew*.45+8),-eh*1.25); x.stroke(); }
+    x.restore();
+  });
+  x.strokeStyle = hex(Math.max(0, eyeHex-0x303030)); x.lineWidth = 4;
+  [-1,1].forEach(sd => { x.beginPath(); x.moveTo(sd*60,210); x.quadraticCurveTo(sd*110,190,sd*165,208); x.stroke(); });
+  x.fillStyle = 'rgba(217,119,6,.3)'; x.beginPath(); x.arc(0,312,5,0,7); x.fill();
+  if(gang){ x.fillStyle = '#e11d48'; x.beginPath(); x.moveTo(-34,350); x.quadraticCurveTo(0,338,34,350); x.quadraticCurveTo(0,386,-34,350); x.fill(); x.fillStyle = 'rgba(255,255,255,.6)'; x.beginPath(); x.ellipse(0,364,12,4,0,0,7); x.fill(); }
+  else { x.strokeStyle = '#e8657a'; x.lineWidth = 4.5; x.beginPath(); x.moveTo(-26,352); x.quadraticCurveTo(0,(stage==='child'?374:366),26,352); x.stroke(); }
+  x.restore();
+  const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+}
+function tattooTex(){
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.fillStyle = '#ffefe8'; x.fillRect(0,0,256,256);
+  x.strokeStyle = '#0f172a'; x.lineWidth = 3; x.beginPath(); x.moveTo(60,250); x.bezierCurveTo(90,160,40,100,110,60); x.bezierCurveTo(170,40,190,120,220,190); x.stroke();
+  [[100,80,.8],[70,160,.62],[180,110,.72],[160,190,.5]].forEach(([rx,ry,s]) => {
+    x.save(); x.translate(rx,ry); x.scale(s,s); x.fillStyle = '#047857'; x.beginPath(); x.ellipse(-24,20,20,9,.8,0,7); x.fill(); x.beginPath(); x.ellipse(24,-14,18,8,-1,0,7); x.fill();
+    [['#881337',26],['#9f1239',20],['#be123c',14],['#e11d48',9],['#fda4af',4]].forEach(([cc,r],i) => { x.fillStyle = cc; x.beginPath(); x.arc(i%2?-2:2,i%2?2:-2,r,0,7); x.fill(); });
+    x.strokeStyle = '#18181b'; x.lineWidth = 2.5; x.beginPath(); x.arc(0,0,26,0,7); x.stroke(); x.restore();
+  });
+  const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
+}
+function laceTex(){
+  const c = document.createElement('canvas'); c.width = 128; c.height = 32; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0,0,128,32); x.strokeStyle = '#94a3b8'; x.lineWidth = 2;
+  for(let i=0;i<128;i+=16){ x.beginPath(); x.arc(i+8,24,8,0,Math.PI); x.stroke(); x.beginPath(); x.moveTo(i,0); x.lineTo(i+8,16); x.lineTo(i+16,0); x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.repeat.set(3,1); t.needsUpdate = true; return t;
+}
+function styleOf(key, stage, gang){
+  let s = {...OUTFIT_STYLE[key]};
+  if(key === 'daily'){
+    if(stage === 'teen') s = {top:0x1e3a8a,skirt:0x1e3a8a,trim:0xffffff,type:'short',uniform:true};
+    if(stage === 'adult') s = {top:0x93c5fd,skirt:0x93c5fd,trim:0xffffff,type:'short'};
+  }
+  if(gang) s = {top:0x059669,skirt:0x059669,trim:0x18181b,type:'short',gang:true};
+  return s;
+}
+
+function buildCharacter(o){
+  const {stage, hair, eye, rib, outfit} = o, gang = !!o.gang;
+  const P = {child:{s:.66,h:1.45,L:1.05,T:1.0,side:.42},teen:{s:.84,h:1.12,L:1.25,T:1.1,side:.7},adult:{s:1,h:1,L:1.3,T:1.15,side:.9}}[stage];
+  const st = styleOf(outfit, stage, gang);
+  const root = new THREE.Group(), sc = new THREE.Group(); sc.scale.setScalar(P.s); root.add(sc);
+  const skin = M(0xfff0ea,{roughness:.55}), dress = M(st.top,{roughness:.3,metalness:st.type==='armor'?.7:.2}), skirtM = M(st.skirt,{roughness:.32,metalness:st.type==='armor'?.3:.2,side:THREE.DoubleSide});
+  const trim = M(st.trim,{metalness:.6,roughness:.3}), hairM = M(hair,{roughness:.35,side:THREE.DoubleSide});
+  const L = P.L, T = P.T, shY = L+.15+T, hr = .38*P.h;
+
+  const body = new THREE.Group(); sc.add(body);
+  // 軀幹
+  add(body,new THREE.CylinderGeometry(.27,.33,T,18),dress,0,L+.15+T/2,0);
+  add(body,new THREE.CylinderGeometry(.36,.4,.4,18),skirtM,0,L+.1,0);
+  // 裙子
+  const skTop = L+.18, skBot = st.type==='gown' ? L*.12 : st.type==='armor' ? skTop-.5 : skTop-(stage==='child'?.5:.6);
+  add(body,new THREE.CylinderGeometry(.4,st.type==='gown'?.82:.55,skTop-skBot,24,1,true),skirtM,0,(skTop+skBot)/2,0);
+  if(st.type==='gown') add(body,new THREE.TorusGeometry(.8,.025,6,28),trim,0,skBot+.02,0,false).rotation.x = Math.PI/2;
+  if(st.type==='short' && !gang) add(body,new THREE.TorusGeometry(.53,.03,6,24),trim,0,skBot+.02,0,false).rotation.x = Math.PI/2;
+  // 腰帶 / 蝴蝶結 / 衣領
+  add(body,new THREE.CylinderGeometry(.3,.3,.08,16),trim,0,L+.3,0,false);
+  if(st.uniform){ box(body,.5,.05,.3,0xffffff,0,shY-.08,.25); sph(body,.07,0xdc2626,0,shY-.25,.3); }
+  else if(st.type!=='armor'){ sph(body,.08,hex(rib).length?rib:0xef4444,0,L+.32,.34); }
+  if(st.type==='armor'){ [-1,1].forEach(sd => sph(body,.2,0xcbd5e1,sd*.36,shY-.02,0,{metalness:.8,roughness:.25})); box(body,.1,.5,.06,0xd4af37,0,L+.4,.34,{metalness:.9}); }
+  // 肩帶（細肩帶用於洋裝）
+  if(gang) [-.2,.2].forEach(sx => box(body,.03,.4,.03,0x09090b,sx,shY-.35,.1));
+  // 頸與頭
+  add(body,new THREE.CylinderGeometry(.09,.1,.22,12),skin,0,shY+.08,0);
+  if(gang){
+    add(body,new THREE.CylinderGeometry(.13,.13,.07,16),M(0x18181b,{roughness:.8}),0,shY+.1,0,false);
+    for(let i=0;i<8;i++){ const a = i*Math.PI/4; const sp = add(body,new THREE.ConeGeometry(.022,.07,6),M(0xe2e8f0,{metalness:.95}),Math.sin(a)*.135,shY+.1,Math.cos(a)*.135,false); sp.rotation.z = -Math.sin(a)*1.5; sp.rotation.x = Math.cos(a)*1.5; }
+    const nk = add(body,new THREE.TorusGeometry(.17,.008,6,24),M(0xd4d4d8,{metalness:.95}),0,shY-.02,.04,false); nk.rotation.x = Math.PI/2.3;
+    sph(body,.04,0xf1f5f9,0,shY-.2,.22,{metalness:.95});
+  }
+  const head = new THREE.Group(); head.position.set(0,shY+.2+hr*.92,0); body.add(head);
+  const hm = add(head,new THREE.SphereGeometry(hr,28,24),new THREE.MeshStandardMaterial({map:faceTex(eye,stage,gang),roughness:.5}),0,0,0); hm.rotation.y = -Math.PI/2; hm.scale.set(1,.96,1);
+  [-1,1].forEach(sd => sph(head,hr*.13,0xffe4d6,sd*hr*.96,-hr*.05,0));
+  // 髮型
+  const hrr = hr*1.13;
+  add(head,new THREE.SphereGeometry(hrr,24,16,Math.PI*.5+.95,Math.PI*2-1.9,0,Math.PI*.62),hairM,0,.02,0,false);
+  const H = P.side*P.h*.8 + .05;
+  add(head,new THREE.CylinderGeometry(hrr*.98,hrr*(stage==='child'?.92:.85),H,24,1,true,.95,Math.PI*2-1.9),hairM,0,.04-H/2+.02,0,false);
+  add(head,new THREE.SphereGeometry(hrr*1.005,18,8,Math.PI*.5-.95,1.9,0,Math.PI*.3),hairM,0,.02,0,false);
+  if(stage==='child') [-1,1].forEach(sd => { sph(head,hr*.28,hair,sd*hrr*.92,hr*.35,-hr*.1,{roughness:.35}); box(head,.12,.08,.06,rib,sd*hrr*.86,hr*.55,.0); sph(head,hr*.2,hair,sd*hrr*1.05,-hr*.1,-hr*.1); });
+  else box(head,.18,.07,.05,rib,-hrr*.7,hr*.55,hr*.75,{emissive:rib,emissiveIntensity:.2});
+  if(outfit==='forest' && !gang) [-1,1].forEach(sd => { const ear = sph(head,hr*.3,0xfff1f2,sd*hr*.5,hr*1.35,-hr*.1); ear.scale.set(.55,2.4,.3); ear.rotation.z = -sd*.2; const inn = sph(head,hr*.18,0xfda4af,sd*hr*.5,hr*1.35,-hr*.05); inn.scale.set(.45,2.1,.2); inn.rotation.z = -sd*.2; });
+  if(outfit==='queen' && !gang){ add(head,new THREE.TorusGeometry(hr*.95,.03,6,24),trim,0,hr*.78,0,false).rotation.x = Math.PI/2; for(let i=0;i<7;i++){ const a = i*Math.PI*2/7; cone(head,.05,.2,0xd4af37,Math.sin(a)*hr*.95,hr*.78,Math.cos(a)*hr*.95,5,{metalness:.9}); } sph(head,.06,0xe11d48,0,hr*1.15,hr*.9,glow(0xe11d48)); }
+  if(outfit==='royal' && !gang){ add(head,new THREE.TorusGeometry(hr*.8,.02,6,24,Math.PI),trim,0,hr*.85,.02,false); sph(head,.05,0x6366f1,0,hr*1.2,hr*.4,glow(0x4f46e5)); }
+
+  // 手臂
+  const armMat = gang ? new THREE.MeshStandardMaterial({map:tattooTex(),roughness:.5}) : skin;
+  function arm(sd){
+    const pv = new THREE.Group(); pv.position.set(sd*.4,shY-.08,0); body.add(pv);
+    add(pv,new THREE.CylinderGeometry(.1,.085,.52,12),armMat,sd*.04,-.26,0,false);
+    add(pv,new THREE.CylinderGeometry(.08,.065,.5,12),skin,sd*.04,-.76,.04,false).rotation.x = -.12;
+    sph(pv,.075,0xffe4d6,sd*.04,-1.04,.09); return pv;
+  }
+  const lA = arm(1), rA = arm(-1);
+
+  // 雙腿
+  const laceT = laceTex();
+  function leg(sd){
+    const pv = new THREE.Group(); pv.position.set(sd*.2,L,0); sc.add(pv);
+    const stock = gang ? M(0xffffff,{roughness:.4}) : skin;
+    add(pv,new THREE.CylinderGeometry(.16,.12,L*.5,14),stock,0,-L*.25,0,false);
+    add(pv,new THREE.CylinderGeometry(.12,.085,L*.5,14),(stage!=='adult'||gang)?M(0xffffff,{roughness:.45}):skin,0,-L*.75,.01,false);
+    if(gang) add(pv,new THREE.CylinderGeometry(.165,.165,.14,14),new THREE.MeshStandardMaterial({map:laceT,roughness:.4}),0,-.1,0,false);
+    const shoeC = gang ? 0x10b981 : stage==='adult' ? st.trim : 0x7f1d1d;
+    const shoe = add(pv,new THREE.BoxGeometry(.2,.1,.42),M(shoeC,{roughness:.2,metalness:.35}),0,-L+((gang||stage==='adult')?.14:.05),.1,false);
+    if(gang || stage==='adult') add(pv,new THREE.CylinderGeometry(.03,.02,.14,8),M(0x2b1d0c),0,-L+.07,-.07,false);
+    return pv;
+  }
+  const lL = leg(1), rL = leg(-1);
+  // 地面光環
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.85,1.05,32), new THREE.MeshBasicMaterial({color:gang?0x38bdf8:0xd4af37,side:THREE.DoubleSide,transparent:true,opacity:.8}));
+  ring.rotation.x = -Math.PI/2; ring.position.y = .03; sc.add(ring);
+
+  pawnParts = {body, head, leftArm:lA, rightArm:rA, leftLeg:lL, rightLeg:rL};
+  root.userData.height = (shY+.2+hr*2)*P.s;
+  return root;
+}
+
+function rebuildDaughter(over){
+  const pos = pawn ? pawn.position.clone() : null, ry = pawn ? pawn.rotation.y : 0;
+  if(pawn) scene.remove(pawn);
+  const o = Object.assign({stage:stageOfAge(ageOf(S.season)), hair:S.hair, eye:S.eye, rib:S.rib, outfit:S.outfit, gang:false}, over||{});
+  pawn = buildCharacter(o); pawn.traverse(m => { if(m.isMesh) m.castShadow = true; });
+  pawn.rotation.y = ry;
+  if(pos) pawn.position.copy(pos); else placePawn(S.at,true);
+  scene.add(pawn);
+}
+function placePawn(id,instant){
+  const d = isl(id); S.at = id;
+  if(instant) pawn.position.set(d.x, .3, d.z+4.9);
+}
+function pawnH(){ return pawn.userData.height || 3.4; }
+
+// ---- 走動動畫 ----
+let walking = false;
+function moveDaughterTo(tx, tz, done){
+  if(!pawn) return;
+  const sx = pawn.position.x, sz = pawn.position.z, dist = Math.hypot(tx-sx,tz-sz);
+  if(dist < .1){ done&&done(); return; }
+  walking = true; let t0 = null; const dur = Math.max(1200,Math.min(2600,dist*70)), cycles = Math.max(3,dist/2);
+  pawn.rotation.y = Math.atan2(tx-sx,tz-sz);
+  function step(ts){
+    if(!t0) t0 = ts; const p = Math.min((ts-t0)/dur,1), e = p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+    pawn.position.x = sx+(tx-sx)*e; pawn.position.z = sz+(tz-sz)*e;
+    const ph = p*cycles*Math.PI*2;
+    pawnParts.leftLeg.rotation.x = Math.sin(ph)*.65; pawnParts.rightLeg.rotation.x = -Math.sin(ph)*.65;
+    pawnParts.leftArm.rotation.x = -Math.sin(ph)*.5; pawnParts.rightArm.rotation.x = Math.sin(ph)*.5;
+    pawnParts.body.position.y = Math.abs(Math.sin(ph))*.08;
+    if(p < 1) requestAnimationFrame(step);
+    else { ['leftLeg','rightLeg','leftArm','rightArm'].forEach(k => pawnParts[k].rotation.x = 0); pawnParts.body.position.y = 0; pawn.rotation.y = 0; walking = false; done&&done(); }
+  }
+  requestAnimationFrame(step);
+}
+
+// ============================================================================
+// 6. 相機
+// ============================================================================
+function viewFor(k){
+  if(k === 'iso') return {pos:new THREE.Vector3(0,82,78), target:new THREE.Vector3(0,0,0)};
+  if(k === 'daughter'){ const p = pawn.position, h = pawnH(); return {pos:new THREE.Vector3(p.x,p.y+h*.62,p.z+h*1.9), target:new THREE.Vector3(p.x,p.y+h*.5,p.z)}; }
+  if(k === 'face'){ const p = pawn.position, h = pawnH(); return {pos:new THREE.Vector3(p.x,p.y+h*.86,p.z+h*.62), target:new THREE.Vector3(p.x,p.y+h*.84,p.z)}; }
+  const d = isl(k); return {pos:new THREE.Vector3(d.x,15,d.z+20), target:new THREE.Vector3(d.x,3,d.z)};
+}
+function tween(fromV, toV, dur, apply){
+  const a = fromV.clone(); let t0 = null;
+  function f(ts){ if(!t0) t0 = ts; const p = Math.min((ts-t0)/dur,1), e = p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2; apply(a.clone().lerp(toV,e)); if(p<1) requestAnimationFrame(f); }
+  requestAnimationFrame(f);
+}
+function flyTo(v, dur=900){ tween(camera.position, v.pos, dur, p => camera.position.copy(p)); tween(controls.target, v.target, dur, p => controls.target.copy(p)); }
+function camView(k){
+  if(isTouring) toggleTour(false);
+  document.querySelectorAll('#panel-camera .btn-cam').forEach(b => b.classList.remove('on'));
+  const b = document.getElementById('cam-'+k); if(b) b.classList.add('on');
+  flyTo(viewFor(k));
+}
+function toggleTour(f){
+  isTouring = f !== undefined ? f : !isTouring; controls.autoRotate = isTouring; controls.autoRotateSpeed = 1.2;
+  const b = document.getElementById('btn-tour'); b.classList.toggle('on', isTouring); b.textContent = isTouring ? '⏸ 停止巡航' : '🔄 巡航';
+}
+
+// ============================================================================
+// 7. 互動：滑鼠、島嶼面板
+// ============================================================================
+const hudLabel = document.getElementById('hud-label');
+function pickIsland(e){
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX-r.left)/r.width)*2-1; mouse.y = -((e.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits = raycaster.intersectObjects(tilesGroup.children,true);
+  if(!hits.length) return null;
+  let o = hits[0].object; while(o.parent && !(o.userData && o.userData.id)) o = o.parent;
+  return o.userData && o.userData.id ? o.userData : null;
+}
+function onMove(e){
+  const d = pickIsland(e);
+  if(d){ hudLabel.textContent = `👆 ${d.num} ${d.icon} ${d.name}`; hudLabel.style.left = (e.clientX+16)+'px'; hudLabel.style.top = (e.clientY+16)+'px'; hudLabel.style.display = 'block'; renderer.domElement.style.cursor = 'pointer'; }
+  else { hudLabel.style.display = 'none'; renderer.domElement.style.cursor = 'default'; }
+}
+function onClick(e){ if(S && S.over) return; const d = pickIsland(e); if(d) selectIsland(d); }
+
+function selectIsland(d){
+  if(walking) return;
+  isTouring && toggleTour(false);
+  S.at = d.id;
+  moveDaughterTo(d.x, d.z+4.9);
+  flyTo(viewFor(d.id), 900);
+  openPanel(d);
+}
+function openPanel(d){
+  closeEnding(true);
+  document.getElementById('panel-icon').textContent = d.icon;
+  document.getElementById('panel-title').textContent = d.name;
+  document.getElementById('panel-subtitle').textContent = `${d.num} KINGDOM PROVINCE`;
+  document.getElementById('panel-desc').textContent = d.desc;
+  const box = document.getElementById('panel-actions'); box.innerHTML = '';
+  d.acts.forEach(id => {
+    const a = A[id], fx = Object.entries(a.fx).map(([k,v]) => `${AL[k]}${v>0?'+':''}${v}`).join(' ');
+    const extra = [a.s?`壓力${a.s>0?'+':''}${a.s}`:'', a.sh?`星蝕${a.sh>0?'+':''}${a.sh}`:'', a.tr?`信賴+${a.tr}`:''].filter(Boolean).join(' ');
+    const b = document.createElement('button');
+    b.className = 'w-full btn-gold rounded-xl p-2.5 text-left';
+    b.innerHTML = `<div class="flex justify-between items-center"><span class="text-sm text-amber-950">${a.n}</span><span class="chip text-amber-950">${a.g>0?'+':''}${a.g} G</span></div>
+      <div class="text-[11px] text-amber-950/85 mt-1">${a.t}｜${fx||'—'}</div><div class="text-[10.5px] text-amber-950/70">${extra}</div>
+      <div class="text-[11px] font-bold text-emerald-900 mt-1">＋ 加入本季行程</div>`;
+    b.onclick = () => addSlot(id);
+    box.appendChild(b);
+  });
+  const sp = (label,fn) => { const b = document.createElement('button'); b.className = 'w-full btn-cam justify-center'; b.style.padding = '9px'; b.textContent = label; b.onclick = fn; box.appendChild(b); };
+  if(d.id === 'home') sp('👗 開啟換裝衣櫥',() => showWardrobe('outfit'));
+  if(d.id === 'market') sp('🛍️ 逛精品店（購買禮物）',() => showWardrobe('shop'));
+  if(d.special === 'contest') CONTESTS.forEach(c => sp(`🏆 報名 ${c.n}`,() => doContest(c.id)));
+  document.getElementById('action-panel').classList.remove('hidden');
+}
+function closePanel(){ document.getElementById('action-panel').classList.add('hidden'); }
+
+function toast(title,msg,ms=3200){
+  const t = document.getElementById('event-toast'); document.getElementById('toast-title').textContent = title; document.getElementById('toast-msg').textContent = msg;
+  t.classList.remove('hidden'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), ms);
+}
+
+// ============================================================================
+// 8. 養成系統：行程、結算、成長、競賽、購物
+// ============================================================================
+function addSlot(id){
+  if(S.over) return;
+  const i = S.slots.indexOf(null);
+  if(i < 0){ toast('⚠️ 行程已滿','本季三個旬位都排滿了，點選旬位可取消。'); return; }
+  S.slots[i] = id; renderSchedule();
+}
+function clearSlot(i){ S.slots[i] = null; renderSchedule(); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+function applyAct(id,log){
+  const a = A[id]; S.gold += a.g; S.stress = clamp(S.stress+(a.s||0),0,999);
+  for(const k in a.fx) S.st[k] = clamp(S.st[k]+a.fx[k],0,999);
+  if(a.tr) S.trust = clamp(S.trust+a.tr,0,100);
+  if(a.sh) S.shadow = Math.max(0,S.shadow+a.sh);
+  S.cnt[id]++;
+  const e = eff();
+  if(id==='palace' && e.cha>=300 && !S.flag.prince){ S.flag.prince = true; log.push('👑 在王宮與年輕的人類王儲不期而遇！（王儲邂逅旗標）'); }
+  if(id==='mine' && S.cnt.mine>=2 && !S.flag.crystal){ S.flag.crystal = true; log.push('💎 礦坑深處有位神祕的晶脈王子向她點頭致意。'); }
+  if(id==='spring' && (S.outfit==='forest' || e.kin>=400) && !S.flag.rabbit){ S.flag.rabbit = true; log.push('🐰 森林裡的白兔王子與星絨貓國王子前來報恩！'); }
+  if(id==='summer' && (S.outfit==='south' || e.cha>=450) && !S.flag.south){ S.flag.south = true; log.push('🌊 南洋的汐音王子在海邊與她相遇。'); }
+  if(id==='stars' && S.outfit==='gothic'){ S.shadow += 35; log.push('🌑 暗夜使魔在星空下與她共鳴（星蝕+35）。'); }
+}
+function runSeason(){
+  if(S.over) return;
+  if(!S.slots.some(Boolean)){ toast('⚠️ 尚無行程','請先到島嶼上挑選活動排進本季。'); return; }
+  const log = [];
+  S.slots.forEach(id => {
+    if(!id) return; const a = A[id];
+    if(a.g < 0 && S.gold + a.g < 0){ log.push(`💸 資金不足，跳過「${a.n}」`); return; }
+    applyAct(id,log); log.push(`✅ ${a.n} 完成`);
+  });
+  S.slots = [null,null,null]; S.season++; S.contested = false;
+  const prevStage = stageOfAge(ageOf(S.season-1)), nowStage = stageOfAge(ageOf(S.season));
+  if(S.season < 32 && S.season % 4 === 0){ const sal = FATHER[S.father].sal; S.gold += sal; log.push(`🪙 新的一年，領取年度王國俸祿 +${sal} G`); }
+  if(eff().sta <= S.stress) log.push('🤒 壓力超過體力負荷，蕾娜病倒了，建議安排休養或旅遊。');
+  S.log = log;
+  if(S.season >= 32){ updateAll(); toast('🎂 成年禮之日','蕾娜滿 18 歲了！正在判定她的星軌……',2500); setTimeout(() => judgeNow(true), 1500); return; }
+  if(prevStage !== nowStage){
+    rebuildDaughter(); log.push(`🌟 蕾娜長大了！進入${STAGE_N[nowStage]}（${ageOf(S.season)} 歲）`);
+    toast('🌟 蕾娜長大了',`${STAGE_N[nowStage]} ｜ ${ageOf(S.season)} 歲`,4200);
+  } else toast(`📅 ${ageOf(S.season)} 歲 ${SEASONS[S.season%4]}`, log.slice(0,3).join('\n'),3800);
+  updateAll();
+}
+function hug(){ if(S.over) return; S.trust = clamp(S.trust+4,0,100); S.stress = clamp(S.stress-12,0,999); S.st.kin = clamp(S.st.kin+8,0,999); toast('🤗 摸頭關懷','信賴 +4｜壓力 -12｜體貼 +8'); updateAll(); }
+function scold(){ if(S.over) return; S.st.mor = clamp(S.st.mor+15,0,999); S.shadow = Math.max(0,S.shadow-15); S.stress = clamp(S.stress+10,0,999); toast('📿 嚴厲訓誡','道德 +15｜星蝕 -15｜壓力 +10'); updateAll(); }
+
+function doContest(id){
+  if(S.over) return; if(S.contested){ toast('⚠️ 本季已參賽','每季只能報名一場大祭競賽。'); return; }
+  const c = CONTESTS.find(x => x.id === id), score = Math.round(c.f(eff())), win = score >= 450;
+  S.contested = true; S.gold += win ? 1500 : 400; S.stress = clamp(S.stress+8,0,999);
+  for(const k in c.g) S.st[k] = clamp(S.st[k]+c.g[k],0,999);
+  toast(win ? `🏆 ${c.n} 奪冠！` : `🎖️ ${c.n} 佳作入圍`, `綜合評分 ${score}｜獎金 +${win?1500:400} G｜${Object.entries(c.g).map(([k,v]) => AL[k]+'+'+v).join(' ')}`,4200);
+  updateAll();
+}
+
+// ============================================================================
+// 9. UI 渲染
+// ============================================================================
+function radarSVG(e){
+  const cx = 85, cy = 80, r = 52, n = 10; let grid = '', pts = '', labels = '';
+  [.33,.66,1].forEach(k => { grid += `<polygon points="${ATTR.map((_,i) => { const a = -Math.PI/2+i*2*Math.PI/n; return (cx+Math.cos(a)*r*k).toFixed(1)+','+(cy+Math.sin(a)*r*k).toFixed(1); }).join(' ')}" fill="none" stroke="rgba(212,175,55,.25)" stroke-width="1"/>`; });
+  ATTR.forEach(([k,l],i) => { const a = -Math.PI/2+i*2*Math.PI/n, v = Math.min(1,e[k]/900);
+    pts += (cx+Math.cos(a)*r*v).toFixed(1)+','+(cy+Math.sin(a)*r*v).toFixed(1)+' ';
+    labels += `<text x="${(cx+Math.cos(a)*(r+13)).toFixed(1)}" y="${(cy+Math.sin(a)*(r+13)+3).toFixed(1)}" font-size="9" fill="#fbbf24" text-anchor="middle">${l}</text>`; });
+  return `<svg viewBox="0 0 170 160" class="w-full h-[150px]">${grid}<polygon points="${pts}" fill="rgba(244,114,182,.35)" stroke="#f472b6" stroke-width="1.5"/>${labels}</svg>`;
+}
+function renderStatus(){
+  const e = eff(), age = ageOf(Math.min(S.season,31)), stage = stageOfAge(age), [mn,mc] = mood();
+  const bars = ATTR.map(([k,l,ic]) => { const bonus = e[k]-S.st[k]; return `<div><div class="flex justify-between text-[11px]"><span class="text-amber-300/80">${ic} ${l}</span><span class="font-bold text-amber-200">${e[k]}${bonus?`<span class="text-emerald-400 text-[9.5px]">(+${bonus})</span>`:''}</span></div><div class="bg-black/60 rounded-full h-1 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-amber-500 to-rose-400" style="width:${Math.min(100,e[k]/9.99)}%"></div></div></div>`; }).join('');
+  document.getElementById('status-panel').innerHTML = `
+   <div class="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2">
+     <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background:${hex(S.hair)};box-shadow:0 0 8px ${hex(S.hair)}"></span><span class="serif font-bold text-amber-300">${S.name}</span></div>
+     <span class="text-[10.5px] bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40">${Math.min(18,age)} 歲｜${STAGE_N[stage]}</span></div>
+   <div class="text-[11px] text-amber-400/80 mb-2">${ZOD[S.zod][0]}（髮：${S.hairN}）・${BLOOD[S.blood].n}（瞳：${S.eyeN}）<br>養父：${FATHER[S.father].n}</div>
+   <div class="grid grid-cols-2 gap-1.5 text-xs mb-2">
+     <div class="bg-black/50 p-2 rounded-xl border border-amber-500/20"><div class="text-amber-400/70 text-[10px]">🪙 養育金</div><div class="font-bold text-amber-200">${S.gold.toLocaleString()} G</div></div>
+     <div class="bg-black/50 p-2 rounded-xl border border-amber-500/20"><div class="text-amber-400/70 text-[10px]">💢 壓力</div><div class="font-bold ${S.stress>=e.sta?'text-rose-400':'text-emerald-400'}">${S.stress}</div></div>
+     <div class="bg-black/50 p-2 rounded-xl border border-amber-500/20"><div class="text-amber-400/70 text-[10px]">💖 信賴</div><div class="font-bold text-pink-300">${S.trust} / 100</div></div>
+     <div class="bg-black/50 p-2 rounded-xl border border-amber-500/20"><div class="text-amber-400/70 text-[10px]">🌙 星蝕</div><div class="font-bold text-violet-300">${S.shadow}</div></div>
+   </div>
+   <div class="text-xs mb-1">狀態：<span class="font-bold ${mc}">${mn}</span>　<span class="text-amber-400/70">穿著：${OUTFITS[S.outfit].n}</span></div>
+   ${radarSVG(e)}
+   <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 bg-black/35 p-2.5 rounded-xl border border-amber-500/15">${bars}</div>`;
+}
+function renderSchedule(){
+  const age = ageOf(Math.min(S.season,31));
+  document.getElementById('schedule').innerHTML = `
+   <div class="flex items-center justify-between mb-2"><div><div class="serif font-bold text-amber-300 text-sm">📅 ${age} 歲 ${SEASONS[Math.min(S.season,31)%4]}</div><div class="text-[10px] text-amber-400/70">第 ${Math.min(S.season+1,32)} / 32 季</div></div>
+     <div class="flex gap-1"><button class="btn-cam" onclick="hug()">🤗 摸頭</button><button class="btn-cam" onclick="scold()">📿 訓誡</button></div></div>
+   <div class="space-y-1.5 mb-2">${S.slots.map((id,i) => `<div class="slot ${id?'full':''}" onclick="clearSlot(${i})"><span class="text-amber-400/70 text-[10px]">第${['一','二','三'][i]}旬</span>　${id?A[id].n+` <span class="text-amber-400/60 text-[10px]">（點擊取消）</span>`:'<span class="text-amber-100/50">點選島嶼，加入活動</span>'}</div>`).join('')}</div>
+   <button class="btn-gold w-full py-2 rounded-xl text-sm" onclick="runSeason()" ${S.over?'disabled':''}>▶ 開始執行本季行程</button>
+   <div class="mt-2 text-[10.5px] text-amber-100/70 leading-relaxed max-h-[58px] overflow-y-auto">${S.log.map(l => '・'+l).join('<br>')}</div>`;
+}
+function updateAll(){ renderStatus(); renderSchedule(); }
+
+// ---- 彈窗 ----
+function showModal(html){ const m = document.getElementById('modal'); document.getElementById('modal-box').innerHTML = html; m.style.display = 'flex'; }
+function closeModal(){ document.getElementById('modal').style.display = 'none'; }
+const mclose = '<button onclick="closeModal()" class="text-amber-400 hover:text-white px-2 rounded hover:bg-white/10 text-lg">✕</button>';
+
+let setupCfg = {name:'蕾娜', zod:11, blood:'AB', father:'noble'};
+function showSetup(){
+  const z = ZOD[setupCfg.zod], b = BLOOD[setupCfg.blood];
+  showModal(`<div class="flex justify-between items-center mb-3"><h2 class="serif text-lg font-bold text-amber-300">✨ 創角：迎接星辰之繭中的少女</h2>${S?mclose:''}</div>
+   <div class="grid md:grid-cols-2 gap-4 text-sm">
+    <div class="space-y-3">
+     <label class="block text-xs text-amber-400">女兒姓名<input id="su-name" value="${setupCfg.name}" class="w-full mt-1 bg-black/50 border border-amber-500/40 rounded-lg px-3 py-2 text-amber-100" style="user-select:text"></label>
+     <label class="block text-xs text-amber-400">血型（決定瞳色與髮飾色）<div class="grid grid-cols-4 gap-1.5 mt-1">${Object.keys(BLOOD).map(k => `<button class="btn-cam justify-center ${k===setupCfg.blood?'on':''}" onclick="setupCfg.name=document.getElementById('su-name').value;setupCfg.blood='${k}';showSetup()">${BLOOD[k].n}</button>`).join('')}</div><div class="mt-1 text-amber-200/80">${b.d}｜瞳色：<span style="color:${hex(b.eye)}">● ${b.eyeN}</span></div></label>
+     <label class="block text-xs text-amber-400">誕生星座（決定髮色）<div class="grid grid-cols-4 gap-1.5 mt-1">${ZOD.map((q,i) => `<button class="btn-cam justify-center ${i===setupCfg.zod?'on':''}" style="padding:5px 2px" onclick="setupCfg.name=document.getElementById('su-name').value;setupCfg.zod=${i};showSetup()"><span style="color:${hex(q[1])}">●</span> ${q[0]}</button>`).join('')}</div><div class="mt-1 text-amber-200/80">髮色：<span style="color:${hex(z[1])}">● ${z[2]}</span>｜天賦：${Object.keys(z[3]).map(k => AL[k]).join('、')}</div></label>
+    </div>
+    <div><div class="text-xs text-amber-400 mb-1">養父過去身分</div><div class="space-y-1.5">${Object.entries(FATHER).map(([k,f]) => `<button class="w-full text-left p-2 rounded-lg border ${k===setupCfg.father?'border-amber-300 bg-amber-500/20':'border-amber-500/30 bg-black/30'}" onclick="setupCfg.name=document.getElementById('su-name').value;setupCfg.father='${k}';showSetup()"><div class="font-bold text-amber-200 text-xs">${f.n}</div><div class="text-[10.5px] text-amber-100/70">養育金 ${f.gold} G｜年俸 ${f.sal} G｜${Object.entries(f.fx).map(([a,v]) => AL[a]+'+'+v).join(' ')}</div></button>`).join('')}</div></div>
+   </div>
+   <button class="btn-gold w-full py-2.5 rounded-xl mt-4" onclick="startGame()">🌟 開始養成（10 歲 春季）</button>`);
+}
+function startGame(){
+  setupCfg.name = (document.getElementById('su-name').value || '蕾娜').slice(0,8);
+  closeModal(); closeEnding(); closePanel();
+  newGame(setupCfg); pawn && scene.remove(pawn); pawn = null; rebuildDaughter(); updateAll();
+  camView('home'); toast('🌟 養成開始',`${S.name}（${ZOD[S.zod][0]}・${BLOOD[S.blood].n}）來到你的家。髮色 ${S.hairN}、瞳色 ${S.eyeN}。`,4500);
+}
+
+function showWardrobe(tab='outfit'){
+  const body = tab === 'outfit'
+    ? `<div class="grid md:grid-cols-2 gap-2">${Object.entries(OUTFITS).map(([k,o]) => { const own = S.owned[k], on = S.outfit===k;
+        return `<div class="p-3 rounded-xl border ${on?'border-amber-300 bg-amber-500/20':'border-amber-500/30 bg-black/30'}"><div class="font-bold text-amber-200 text-sm">${o.n}</div>
+        <div class="text-[11px] text-amber-100/70 my-1">${o.d}<br>${Object.entries(o.bonus).map(([a,v]) => AL[a]+'+'+v).join('　')}</div>
+        ${on?'<span class="chip text-emerald-300">穿戴中</span>':own?`<button class="btn-gold px-3 py-1 rounded-lg text-xs" onclick="wear('${k}')">換上</button>`:`<button class="btn-gold px-3 py-1 rounded-lg text-xs" onclick="buyOutfit('${k}')">購買 ${o.price} G</button>`}</div>`; }).join('')}</div>`
+    : `<div class="grid md:grid-cols-2 gap-2">${SHOP.map(s => { const got = S.items[s.id] && s.flag;
+        return `<div class="p-3 rounded-xl border border-amber-500/30 bg-black/30"><div class="font-bold text-amber-200 text-sm">${s.n}</div><div class="text-[11px] text-amber-100/70 my-1">${Object.entries(s.fx).map(([a,v]) => AL[a]+'+'+v).join('　')}${s.tr?`　信賴+${s.tr}`:''}${s.stress?`　壓力${s.stress}`:''}${s.sh?`　星蝕+${s.sh}`:''}</div>
+        <button class="btn-gold px-3 py-1 rounded-lg text-xs" ${got?'disabled':''} onclick="buyItem('${s.id}')">${got?'已持有':'購買 '+s.price+' G'}</button></div>`; }).join('')}</div>`;
+  showModal(`<div class="flex justify-between items-center mb-3"><div class="flex gap-2"><button class="btn-cam ${tab==='outfit'?'on':''}" onclick="showWardrobe('outfit')">👗 皇家衣櫥</button><button class="btn-cam ${tab==='shop'?'on':''}" onclick="showWardrobe('shop')">🛍️ 精品商店</button></div><div class="text-amber-300 text-sm">🪙 ${S.gold.toLocaleString()} G</div>${mclose}</div>${body}`);
+}
+function wear(k){ S.outfit = k; if(k==='gothic') S.shadow += 15; rebuildDaughter(); updateAll(); showWardrobe('outfit'); toast('👗 換裝完成',OUTFITS[k].n+(k==='gothic'?'（星蝕+15）':'')); }
+function buyOutfit(k){ const o = OUTFITS[k]; if(S.gold < o.price){ toast('⚠️ 金幣不足','養育金不夠購買這套禮服。'); return; } S.gold -= o.price; S.owned[k] = true; wear(k); }
+function buyItem(id){
+  const s = SHOP.find(x => x.id === id); if(S.gold < s.price){ toast('⚠️ 金幣不足','養育金不夠。'); return; }
+  S.gold -= s.price; for(const k in s.fx) S.st[k] = clamp(S.st[k]+s.fx[k],0,999);
+  S.trust = clamp(S.trust+(s.tr||0),0,100); S.stress = clamp(S.stress+(s.stress||0),0,999); S.shadow += s.sh||0;
+  if(s.flag){ S.flag[s.flag] = true; S.items[s.id] = true; }
+  updateAll(); showWardrobe('shop'); toast('🎁 購買成功',s.n);
+}
+
+function showGallery(){
+  const have = new Set(gallery);
+  showModal(`<div class="flex justify-between items-center mb-3"><h2 class="serif text-lg font-bold text-amber-300">📖 60 結局圖鑑　<span class="text-xs text-amber-400">已收錄 ${have.size} / 60</span></h2>${mclose}</div>
+   <div class="grid grid-cols-2 md:grid-cols-3 gap-1.5">${ENDINGS.map(e => `<button class="text-left p-2 rounded-lg border ${have.has(e.id)?'border-amber-300 bg-amber-500/15':'border-amber-500/20 bg-black/30'}" onclick="closeModal();previewEnding(${e.id})"><div class="text-[10px] text-amber-400">#${String(e.id).padStart(2,'0')}　評級 ${e.rank}</div><div class="text-xs font-bold ${have.has(e.id)?'text-amber-200':'text-amber-100/50'}">${have.has(e.id)?e.name:'？？？（點擊預覽）'}</div></button>`).join('')}</div>`);
+}
+function showSandbox(){
+  showModal(`<div class="flex justify-between items-center mb-3"><h2 class="serif text-lg font-bold text-amber-300">🧪 沙盒測試工具</h2>${mclose}</div>
+   <div class="grid md:grid-cols-2 gap-2 text-sm">
+    <button class="btn-gold rounded-xl py-2" onclick="sb('unlock')">🎁 解鎖全套華服 ＋3000 G</button>
+    <button class="btn-gold rounded-xl py-2" onclick="sb('flags')">✨ 點亮全部王子與羅盤旗標</button>
+    <button class="btn-gold rounded-xl py-2" onclick="sb('queen')">👑 女皇滿屬預設</button>
+    <button class="btn-gold rounded-xl py-2" onclick="sb('hero')">⚔️ 破界勇者預設</button>
+    <button class="btn-gold rounded-xl py-2" onclick="sb('dark')">🌙 魔界女王預設</button>
+    <button class="btn-gold rounded-xl py-2" onclick="sb('plus')">＋100 全屬性</button>
+    <button class="btn-gold rounded-xl py-2" onclick="sb('age')">⏩ 快轉 4 季（成長一歲）</button>
+   </div>`);
+}
+function sb(k){
+  if(k==='unlock'){ Object.keys(OUTFITS).forEach(o => S.owned[o] = true); S.gold += 3000; }
+  if(k==='flags') Object.assign(S.flag,{prince:true,south:true,rabbit:true,crystal:true,compass:true});
+  if(k==='queen'){ ATTR.forEach(([a]) => S.st[a] = 880); S.st.ref = 960; S.st.cha = 960; S.trust = 100; S.shadow = 0; S.owned.queen = true; S.outfit = 'queen'; }
+  if(k==='hero'){ ATTR.forEach(([a]) => S.st[a] = 300); Object.assign(S.st,{mar:960,sta:850,spi:850,mor:750}); S.owned.knight = true; S.outfit = 'knight'; }
+  if(k==='dark'){ ATTR.forEach(([a]) => S.st[a] = 300); Object.assign(S.st,{cha:950,mar:720,sen:700,mor:40}); S.shadow = 350; S.owned.gothic = true; S.outfit = 'gothic'; }
+  if(k==='plus') ATTR.forEach(([a]) => S.st[a] = clamp(S.st[a]+100,0,999));
+  if(k==='age'){ const prev = stageOfAge(ageOf(S.season)); S.season = Math.min(31,S.season+4); if(stageOfAge(ageOf(S.season))!==prev) rebuildDaughter(); }
+  rebuildDaughter(); updateAll(); toast('🧪 沙盒','已套用'); 
+}
+
+// ============================================================================
+// 10. 結局判定與演出
+// ============================================================================
+let endingFx = null;
+function judgeEnding(){
+  const e = eff(), c = {gold:S.gold,trust:S.trust,shadow:S.shadow,cnt:S.cnt,flag:S.flag,owned:S.owned};
+  return ENDINGS.find(x => x.cond(e,c));
+}
+function judgeNow(real){ if(S.over && !real) return; const en = judgeEnding(); showEnding(en, !real); }
+function previewEnding(id){ showEnding(ENDINGS.find(x => x.id === id), true); }
+function showEnding(en, preview){
+  closePanel(); closeEnding(); toggleTour(false);
+  if(!gallery.includes(en.id)){ gallery.push(en.id); saveGallery(gallery); }
+  const gang = GANG_IDS.includes(en.id);
+  rebuildDaughter({stage:'adult', outfit:en.outfit, gang});
+  pawn.position.set(0, 0.3 + 0, isl('castle').z + 40);
+  pawn.position.set(isl('home').x, .3, isl('home').z+4.9); pawn.rotation.y = 0;
+  S.at = 'home';
+  // 結局特效
+  endingFx = new THREE.Group(); endingFx.position.copy(pawn.position); scene.add(endingFx);
+  particles(endingFx,70,{rx:3.5,ry:6,y0:0,color:gang?0x38bdf8:0xfef08a,mode:gang?'float':'rise',size:.24,speed:.8});
+  if(gang){
+    for(let i=0;i<6;i++){ const a = Math.PI+(i-2.5)*.42, n = npc(endingFx,Math.sin(a)*3.4,Math.cos(a)*3.4-1.6,0x111827,0x0f172a,a+Math.PI,1.1); }
+    const gl = new THREE.PointLight(0x38bdf8,3,14); gl.position.set(0,3,1); endingFx.add(gl);
+  } else { const gl = new THREE.PointLight(0xfde68a,2.5,14); gl.position.set(0,4,2); endingFx.add(gl); }
+  const h = pawnH(), p = pawn.position;
+  flyTo({pos:new THREE.Vector3(p.x,p.y+h*.62,p.z+h*1.9), target:new THREE.Vector3(p.x,p.y+h*.5,p.z)},1100);
+  const lines = gang ? ['夜幕低垂，蕾娜身後的黑衣人們整齊鞠躬。\n「老大，今晚怎麼安排？」她只是微微一笑。','玫瑰藤蔓在她的肩頭綻放，這是屬於暗街的成年禮。'] : [EPI[endingCat(en.id)]];
+  const col = {S:'text-amber-300',A:'text-pink-300',B:'text-sky-300',C:'text-slate-300'}[en.rank];
+  const card = document.getElementById('ending-card');
+  card.innerHTML = `<div class="text-[10px] tracking-widest text-amber-400/80">${preview?'結局預覽':'18 歲成年禮'}　#${String(en.id).padStart(2,'0')}${gang?'　🌙 幫派結局造型':''}</div>
+    <h3 class="serif text-lg font-bold ${col} mt-1">${en.name}</h3><div class="text-xs ${col} mb-2">評級 ${en.rank}　｜　${S.name} ${preview?'':'· '+ZOD[S.zod][0]+'・'+BLOOD[S.blood].n}</div>
+    <p class="text-xs text-amber-100/85 leading-relaxed whitespace-pre-line mb-3">${lines.join('\n')}</p>
+    <div class="flex flex-wrap gap-1.5"><button class="btn-cam" onclick="camView('daughter')">👧 全身</button><button class="btn-cam" onclick="camView('face')">🙂 臉部</button><button class="btn-cam" onclick="showGallery()">📖 圖鑑</button></div>
+    <button class="btn-gold w-full py-2 rounded-xl mt-2 text-sm" onclick="${preview?'closeEnding(true)':'S.over=true;showSetup()'}">${preview?'結束演出，回到養成':'🔁 再玩一輪'}</button>`;
+  card.classList.remove('hidden');
+  if(!preview) S.over = true;
+}
+function closeEnding(restore){
+  document.getElementById('ending-card').classList.add('hidden');
+  if(endingFx){ scene.remove(endingFx); endingFx = null; }
+  if(restore && S && !S.over){ rebuildDaughter(); flyTo(viewFor('home')); }
+}
+
+// ============================================================================
+// 11. 渲染循環
+// ============================================================================
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), .1), t = clock.elapsedTime;
+  controls.update();
+  animated.forEach(f => f(t,dt));
+  if(pawn && !walking && pawnParts.body) pawnParts.body.position.y = Math.sin(t*2.2)*.012;
+  updatePlates();
+  renderer.render(scene,camera);
+}
+
+init();
+newGame(setupCfg);
+rebuildDaughter();
+updateAll();
+animate();
+showSetup();
+</script>
+</body>
+</html>
