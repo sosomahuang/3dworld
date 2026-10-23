@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -228,7 +227,16 @@
         <button class="btn-cam" onclick="setCameraView('school')" id="cam-school">🏛️ 皇家神學院</button>
         <button class="btn-cam" onclick="setCameraView('market')" id="cam-market">🛍️ 城鎮商店街</button>
         <button class="btn-cam" onclick="setCameraView('square')" id="cam-square">🎪 收穫祭廣場</button>
-        <button class="btn-cam" onclick="setCameraView('daughter')" id="cam-daughter">👧 聚焦女兒蕾娜</button>
+        <div class="w-px h-6 bg-amber-500/30 self-center mx-1"></div>
+        <button class="btn-cam" onclick="setCameraView('daughter')" id="cam-daughter">👧 女兒全身特寫</button>
+        <button class="btn-cam" onclick="setCameraView('daughter-face')" id="cam-daughter-face">💄 臉部細節</button>
+        <button class="btn-cam" onclick="setCameraView('daughter-legs')" id="cam-daughter-legs">👠 美腿高跟鞋</button>
+        <div class="w-px h-6 bg-amber-500/30 self-center mx-1"></div>
+        <button class="btn-cam" onclick="toggleAutoTour()" id="btn-tour">🔄 360° 漫遊巡航</button>
+    </div>
+        <button class="btn-cam" onclick="setCameraView('daughter')" id="cam-daughter">👑 女兒全身特寫</button>
+        <button class="btn-cam" onclick="setCameraView('daughter-face')" id="cam-daughter-face">💄 臉部細節</button>
+        <button class="btn-cam" onclick="setCameraView('daughter-legs')" id="cam-daughter-legs">👠 坐姿翹腿細節</button>
         <div class="w-px h-6 bg-amber-500/30 self-center mx-1"></div>
         <button class="btn-cam" onclick="toggleAutoTour()" id="btn-tour">🔄 360° 漫遊巡航</button>
     </div>
@@ -265,7 +273,7 @@
     <div id="hud-label">3D 地標</div>
 
     <!-- 3D 畫布容器 -->
-    <div id="webgl-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+    <div id="webgl-container" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;" class="cursor-grab active:cursor-grabbing"></div>
 
     <script>
         // =========================================================================
@@ -1128,113 +1136,531 @@
         // 6. 女兒角色模型 (Princess Rena Detailed 3D Figurine)
         // 嚴格按照「人物模型 先建立女兒模型」需求精雕細琢
         // =========================================================================
+                        // =========================================================================
+        // 6. 女兒 3D 站姿與走動角色模型 (依據 1000042530.jpg 精品公仔規格精雕重塑)
+        // 特色：純人物立姿！薄荷綠層次波波頭短髮、釘刺黑皮項圈與銀項鍊、
+        //       雙肩紅玫瑰與藤蔓刺青、翡翠綠細肩帶緞面性感洋裝、
+        //       修長美腿配白色蕾絲大腿襪、翡翠綠尖頭細高跟鞋！
+        //       各島嶼之間移動具備自然的雙腿雙臂交替走動、步伐彈跳與轉向姿態！
+        // =========================================================================
+        
+        let pawnParts = {};
+
+        // 紋理生成器 A: 少女精緻面部 (深邃貓眼、長睫毛、薄荷綠瞳孔、水嫩嘟唇、腮紅)
+        function createDaughterFaceTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // 陶瓷肌膚底色
+            ctx.fillStyle = '#ffefe8';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // 雙頰粉嫩腮紅
+            const leftBlush = ctx.createRadialGradient(160, 290, 10, 160, 290, 70);
+            leftBlush.addColorStop(0, 'rgba(251, 113, 133, 0.35)');
+            leftBlush.addColorStop(1, 'rgba(251, 113, 133, 0)');
+            ctx.fillStyle = leftBlush;
+            ctx.beginPath(); ctx.arc(160, 290, 70, 0, Math.PI * 2); ctx.fill();
+
+            const rightBlush = ctx.createRadialGradient(352, 290, 10, 352, 290, 70);
+            rightBlush.addColorStop(0, 'rgba(251, 113, 133, 0.35)');
+            rightBlush.addColorStop(1, 'rgba(251, 113, 133, 0)');
+            ctx.fillStyle = rightBlush;
+            ctx.beginPath(); ctx.arc(352, 290, 70, 0, Math.PI * 2); ctx.fill();
+
+            // 繪製眼睛 (左眼與右眼)
+            function drawEye(cx, cy, isRight) {
+                ctx.save();
+                ctx.translate(cx, cy);
+                if (isRight) ctx.scale(-1, 1);
+
+                ctx.beginPath();
+                ctx.moveTo(-50, 0);
+                ctx.quadraticCurveTo(0, -32, 50, -8);
+                ctx.quadraticCurveTo(0, 28, -50, 0);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                // 翡翠薄荷綠雙色瞳孔
+                const irisGrad = ctx.createRadialGradient(0, -2, 5, 0, -2, 26);
+                irisGrad.addColorStop(0, '#5eead4');
+                irisGrad.addColorStop(0.5, '#14b8a6');
+                irisGrad.addColorStop(1, '#0f766e');
+                ctx.fillStyle = irisGrad;
+                ctx.beginPath();
+                ctx.arc(0, -2, 24, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 黑色瞳仁
+                ctx.fillStyle = '#042f2e';
+                ctx.beginPath();
+                ctx.arc(0, -2, 11, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 水汪汪高光
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath(); ctx.arc(-8, -10, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(9, 5, 3.5, 0, Math.PI * 2); ctx.fill();
+
+                // 魅惑黑色上眼線與貓眼拉眼尾
+                ctx.strokeStyle = '#09090b';
+                ctx.lineWidth = 5.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-54, 2);
+                ctx.quadraticCurveTo(-10, -36, 48, -12);
+                ctx.lineTo(60, -18);
+                ctx.stroke();
+
+                // 睫毛細節
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(35, -24); ctx.lineTo(44, -34);
+                ctx.moveTo(15, -32); ctx.lineTo(18, -42);
+                ctx.moveTo(-10, -32); ctx.lineTo(-14, -40);
+                ctx.stroke();
+
+                // 雙眼皮摺痕
+                ctx.strokeStyle = 'rgba(15, 118, 110, 0.45)';
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.moveTo(-40, -38);
+                ctx.quadraticCurveTo(5, -48, 48, -26);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            drawEye(172, 230, false);
+            drawEye(340, 230, true);
+
+            // 精緻修長眉毛 (深藍綠色)
+            ctx.strokeStyle = '#0f766e';
+            ctx.lineWidth = 3.5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(115, 175);
+            ctx.quadraticCurveTo(175, 150, 225, 172);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(397, 175);
+            ctx.quadraticCurveTo(337, 150, 287, 172);
+            ctx.stroke();
+
+            // 小巧鼻樑
+            ctx.fillStyle = 'rgba(217, 119, 6, 0.25)';
+            ctx.beginPath();
+            ctx.arc(256, 295, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 傲嬌紅潤水光唇
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.moveTo(226, 355);
+            ctx.quadraticCurveTo(256, 345, 286, 355);
+            ctx.quadraticCurveTo(256, 362, 226, 355);
+            ctx.fill();
+
+            ctx.fillStyle = '#e11d48';
+            ctx.beginPath();
+            ctx.moveTo(228, 356);
+            ctx.quadraticCurveTo(256, 382, 284, 356);
+            ctx.quadraticCurveTo(256, 360, 228, 356);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+            ctx.beginPath();
+            ctx.ellipse(256, 367, 10, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // 紋理生成器 B: 雙肩與手臂紅玫瑰藤蔓刺青 (Rose & Vine Tattoo)
+        function createTattooTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#ffefe8';
+            ctx.fillRect(0, 0, 512, 512);
+
+            function drawRose(rx, ry, scale) {
+                ctx.save();
+                ctx.translate(rx, ry);
+                ctx.scale(scale, scale);
+
+                ctx.fillStyle = '#047857';
+                ctx.beginPath();
+                ctx.ellipse(-25, 20, 22, 10, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(25, -15, 20, 9, -Math.PI / 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                const petals = [
+                    { r: 28, c: '#881337' },
+                    { r: 22, c: '#9f1239' },
+                    { r: 16, c: '#be123c' },
+                    { r: 10, c: '#e11d48' },
+                    { r: 5,  c: '#fda4af' }
+                ];
+                petals.forEach((p, idx) => {
+                    ctx.fillStyle = p.c;
+                    ctx.beginPath();
+                    ctx.arc((idx % 2 === 0 ? 2 : -2), (idx % 2 === 0 ? -2 : 2), p.r, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                ctx.strokeStyle = '#18181b';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 28, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(120, 480);
+            ctx.bezierCurveTo(180, 320, 80, 200, 220, 120);
+            ctx.bezierCurveTo(340, 80, 380, 240, 440, 380);
+            ctx.stroke();
+
+            drawRose(200, 160, 1.4);
+            drawRose(140, 320, 1.1);
+            drawRose(360, 220, 1.3);
+            drawRose(320, 380, 0.9);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // 紋理生成器 C: 大腿襪蕾絲邊花紋 (Lace Floral Stockings)
+        function createLaceTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 256, 64);
+
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.fillStyle = '#f1f5f9';
+            ctx.lineWidth = 2;
+
+            for (let x = 0; x < 256; x += 16) {
+                ctx.beginPath();
+                ctx.arc(x + 8, 48, 8, 0, Math.PI);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x, 0); ctx.lineTo(x + 8, 32); ctx.lineTo(x + 16, 0);
+                ctx.stroke();
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(4, 1);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // 建立純立姿少女角色模型 (無椅子，具備完整人體四肢、走動骨架層次)
         function buildDetailedDaughterModel() {
-            const pawn = new THREE.Group();
+            const pawnRoot = new THREE.Group();
 
-            // 1. 下身：雙層宮廷蓬蓬洋裝長裙 (Rose Red & Lace Gown)
-            const dressGroup = new THREE.Group();
-            
-            // 外層蓬蓬裙身
-            const dressMat = new THREE.MeshStandardMaterial({
-                color: 0xf43f5e,
+            const faceTex = createDaughterFaceTexture();
+            const tattooTex = createTattooTexture();
+            const laceTex = createLaceTexture();
+
+            const skinMat = new THREE.MeshStandardMaterial({
+                color: 0xfff0ea,
+                roughness: 0.55,
+                metalness: 0.05
+            });
+
+            const tattooSkinMat = new THREE.MeshStandardMaterial({
+                map: tattooTex,
+                roughness: 0.5,
+                metalness: 0.05
+            });
+
+            const emeraldDressMat = new THREE.MeshStandardMaterial({
+                color: 0x059669,
+                roughness: 0.28,
+                metalness: 0.22
+            });
+
+            const mintHairMat = new THREE.MeshStandardMaterial({
+                color: 0x2dd4bf,
                 roughness: 0.35,
-                metalness: 0.15
+                metalness: 0.1
             });
-            const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.4, 16), dressMat);
-            skirt.position.y = 0.7;
-            skirt.castShadow = true;
-            dressGroup.add(skirt);
-
-            // 白色花邊絲質圍裙 (Apron)
-            const apronMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-            const apron = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.82, 0.8, 16, 1, true, 0, Math.PI * 0.9), apronMat);
-            apron.position.set(0, 0.65, 0.12);
-            dressGroup.add(apron);
-
-            // 裙擺蕾絲金邊
-            const hemRim = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.05, 8, 24), new THREE.MeshStandardMaterial({ color: 0xfde047, metalness: 0.8 }));
-            hemRim.rotation.x = Math.PI / 2;
-            hemRim.position.y = 0.05;
-            dressGroup.add(hemRim);
-
-            pawn.add(dressGroup);
-
-            // 2. 上身：合身天鵝絨緊身胸衣 (Corset Bodice)
-            const corset = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.65, 16), new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.4 }));
-            corset.position.y = 1.45;
-            corset.castShadow = true;
-            pawn.add(corset);
-
-            // 胸前金色蝴蝶結飾品
-            const bow = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.12), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9 }));
-            bow.position.set(0, 1.62, 0.44);
-            pawn.add(bow);
-
-            // 3. 泡泡袖與優雅手臂 (Puffed Sleeves & Hands)
-            [-0.52, 0.52].forEach(sx => {
-                const sleeve = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), dressMat);
-                sleeve.position.set(sx, 1.62, 0);
-                pawn.add(sleeve);
-
-                const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0xffedd5 }));
-                arm.position.set(sx, 1.35, 0.08);
-                arm.rotation.x = -Math.PI / 6;
-                pawn.add(arm);
+            const mintHairDarkMat = new THREE.MeshStandardMaterial({
+                color: 0x0f766e,
+                roughness: 0.4
             });
 
-            // 4. 頭部與金髮雙馬尾造型 (Blonde Princess Hairstyle)
+            const stockingMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                roughness: 0.38,
+                metalness: 0.05
+            });
+            const stockingLaceMat = new THREE.MeshStandardMaterial({
+                map: laceTex,
+                roughness: 0.4
+            });
+
+            const pumpShoesMat = new THREE.MeshStandardMaterial({
+                color: 0x10b981,
+                roughness: 0.18,
+                metalness: 0.35
+            });
+            const heelWoodMat = new THREE.MeshStandardMaterial({
+                color: 0x2b1d0c,
+                roughness: 0.4
+            });
+
+            // 人物主身軀群組 (包含頭、胸、腹、雙臂，便於走動時起伏晃動)
+            const bodyGroup = new THREE.Group();
+            bodyGroup.position.set(0, 0, 0);
+
+            // 1. 骨盆與墨綠洋裝下擺 (Hips & Slip Dress Skirt)
+            const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.56, 0.65, 16), emeraldDressMat);
+            hips.position.set(0, 1.48, 0);
+            hips.castShadow = true;
+            bodyGroup.add(hips);
+
+            // 洋裝短下擺 (Dress Hem)
+            const skirtHem = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.45, 16, 1, true), emeraldDressMat);
+            skirtHem.position.set(0, 1.25, 0);
+            skirtHem.rotation.x = Math.PI;
+            bodyGroup.add(skirtHem);
+
+            // 2. 苗條腰肢與胸部 (Waist & Torso)
+            const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.48, 0.65, 16), emeraldDressMat);
+            waist.position.set(0, 1.95, 0);
+            bodyGroup.add(waist);
+
+            // 豐滿胸前弧線 (Bust curves)
+            [-0.18, 0.18].forEach(bx => {
+                const bust = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), emeraldDressMat);
+                bust.position.set(bx, 2.18, 0.24);
+                bodyGroup.add(bust);
+            });
+
+            // 細黑肩帶 (Spaghetti Straps)
+            [-0.22, 0.22].forEach(sx => {
+                const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.45, 6), new THREE.MeshBasicMaterial({ color: 0x09090b }));
+                strap.position.set(sx, 2.38, 0.08);
+                bodyGroup.add(strap);
+            });
+
+            // 3. 雙肩 (Shoulders with Rose Tattoos!)
+            const shoulders = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.22, 0.45), tattooSkinMat);
+            shoulders.position.set(0, 2.45, 0);
+            bodyGroup.add(shoulders);
+
+            // 4. 頸部與飾品 (Neck, Spiked Choker & Silver Necklace)
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.4, 16), skinMat);
+            neck.position.set(0, 2.68, 0.02);
+            bodyGroup.add(neck);
+
+            // 黑色刺釘皮頸圈 (Spiked Choker)
+            const choker = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.1, 16), new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.8 }));
+            choker.position.set(0, 2.68, 0.02);
+            bodyGroup.add(choker);
+
+            for (let i = 0; i < 8; i++) {
+                const spikeA = (Math.PI / 4) * i;
+                const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 6), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95 }));
+                spike.rotation.x = Math.PI / 2;
+                spike.rotation.y = spikeA;
+                spike.position.set(Math.cos(spikeA) * 0.18, 2.68, 0.02 + Math.sin(spikeA) * 0.18);
+                bodyGroup.add(spike);
+            }
+
+            // 銀色項鍊與墜飾
+            const necklace = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.012, 8, 24), new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.95 }));
+            necklace.rotation.x = Math.PI / 2.2;
+            necklace.position.set(0, 2.58, 0.14);
+            bodyGroup.add(necklace);
+
+            const locket = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 16), new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.95 }));
+            locket.rotation.x = Math.PI / 2;
+            locket.position.set(0, 2.40, 0.3);
+            bodyGroup.add(locket);
+
+            // 5. 頭部五官與薄荷綠波波頭短髮 (Face & Mint-Green Bob Hair)
             const headGroup = new THREE.Group();
-            headGroup.position.set(0, 1.95, 0);
+            headGroup.position.set(0, 3.08, 0.05);
 
-            // 臉部
-            const face = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffe4d6, roughness: 0.4 }));
-            face.castShadow = true;
-            headGroup.add(face);
+            const faceMat = new THREE.MeshStandardMaterial({
+                map: faceTex,
+                roughness: 0.5,
+                metalness: 0.05
+            });
+            const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.38, 24, 24), faceMat);
+            headMesh.castShadow = true;
+            headGroup.add(headMesh);
 
-            // 水汪汪的大眼睛與微笑 (立體特徵)
-            [-0.14, 0.14].forEach(ex => {
-                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1e3a8a }));
-                eye.position.set(ex, 0.02, 0.35);
-                headGroup.add(eye);
+            const chin = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.22, 12), skinMat);
+            chin.position.set(0, -0.3, 0.1);
+            chin.rotation.x = Math.PI;
+            headGroup.add(chin);
+
+            // 秀髮基底
+            const hairBase = new THREE.Mesh(new THREE.SphereGeometry(0.44, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.65), mintHairMat);
+            hairBase.position.set(0, 0.06, -0.05);
+            headGroup.add(hairBase);
+
+            // 兩側內扣微卷波波頭 (Curved Side Locks)
+            [-0.34, 0.34].forEach((hx, hi) => {
+                const sideHair = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.25, 0.8, 12), (hi === 0 ? mintHairMat : mintHairDarkMat));
+                sideHair.position.set(hx, -0.15, 0.05);
+                sideHair.rotation.z = (hx > 0 ? -0.22 : 0.22);
+                headGroup.add(sideHair);
             });
 
-            // 燦爛金髮 (Bangs & Hair)
-            const hairMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
-            const bangs = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
-            bangs.position.set(0, 0.04, 0);
-            headGroup.add(bangs);
+            // 額前斜分層次瀏海
+            const frontBangs = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.4, 0.35, 16, 1, false, -Math.PI * 0.3, Math.PI * 0.6), mintHairMat);
+            frontBangs.position.set(0.03, 0.22, 0.28);
+            frontBangs.rotation.x = 0.2;
+            headGroup.add(frontBangs);
 
-            // 左右飄逸馬尾與粉紅蝴蝶結 (Twintails)
-            [-0.42, 0.42].forEach(tx => {
-                const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.12), new THREE.MeshStandardMaterial({ color: 0xf43f5e }));
-                ribbon.position.set(tx, 0.15, -0.15);
-                headGroup.add(ribbon);
+            bodyGroup.add(headGroup);
 
-                const tail = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.85, 8), hairMat);
-                tail.position.set(tx * 1.15, -0.3, -0.2);
-                tail.rotation.z = tx > 0 ? -Math.PI / 8 : Math.PI / 8;
-                headGroup.add(tail);
-            });
+            // 6. 雙臂 (Arms with Rose Tattoos & Natural Walking Swing)
+            // 左臂 (肩關節為中心)
+            const leftArmPivot = new THREE.Group();
+            leftArmPivot.position.set(0.58, 2.45, 0);
 
-            // 皇室小冠冕 (Royal Tiara)
-            const tiara = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.22, 6), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.95, roughness: 0.1 }));
-            tiara.position.set(0, 0.44, 0.05);
-            headGroup.add(tiara);
+            const leftUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.65, 12), tattooSkinMat);
+            leftUpperArm.position.set(0.08, -0.32, 0);
+            leftArmPivot.add(leftUpperArm);
 
-            pawn.add(headGroup);
+            const leftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.65, 12), skinMat);
+            leftForearm.position.set(0.08, -0.85, 0.05);
+            leftForearm.rotation.x = -0.15;
+            leftArmPivot.add(leftForearm);
 
-            // 5. 腳底金色引導光環與陰影
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xfde047, side: THREE.DoubleSide });
-            const groundRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.05, 32), ringMat);
+            const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.2), skinMat);
+            leftHand.position.set(0.08, -1.2, 0.1);
+            leftArmPivot.add(leftHand);
+
+            bodyGroup.add(leftArmPivot);
+
+            // 右臂 (肩關節為中心)
+            const rightArmPivot = new THREE.Group();
+            rightArmPivot.position.set(-0.58, 2.45, 0);
+
+            const rightUpperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.65, 12), tattooSkinMat);
+            rightUpperArm.position.set(-0.08, -0.32, 0);
+            rightArmPivot.add(rightUpperArm);
+
+            const rightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.65, 12), skinMat);
+            rightForearm.position.set(-0.08, -0.85, 0.05);
+            rightForearm.rotation.x = -0.15;
+            rightArmPivot.add(rightForearm);
+
+            const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.2), skinMat);
+            rightHand.position.set(-0.08, -1.2, 0.1);
+            rightArmPivot.add(rightHand);
+
+            bodyGroup.add(rightArmPivot);
+
+            pawnRoot.add(bodyGroup);
+
+            // 7. 雙腿 (Legs with Lace Thigh-High Stockings & Emerald Pumps - 走動擺動關節)
+            // 左腿 (髖關節為中心)
+            const leftLegPivot = new THREE.Group();
+            leftLegPivot.position.set(0.22, 1.25, 0);
+
+            // 蕾絲吊襪帶頂圈
+            const leftLace = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.18, 16), stockingLaceMat);
+            leftLace.position.set(0, -0.09, 0);
+            leftLegPivot.add(leftLace);
+
+            // 白絲大腿
+            const leftThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.17, 0.65, 16), stockingMat);
+            leftThigh.position.set(0, -0.45, 0);
+            leftLegPivot.add(leftThigh);
+
+            // 白絲小腿
+            const leftCalf = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.65, 16), stockingMat);
+            leftCalf.position.set(0, -1.0, 0.02);
+            leftLegPivot.add(leftCalf);
+
+            // 翡翠綠高跟鞋
+            const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.48), pumpShoesMat);
+            leftShoe.position.set(0, -1.35, 0.12);
+            leftLegPivot.add(leftShoe);
+
+            const leftHeel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 0.25, 8), heelWoodMat);
+            leftHeel.position.set(0, -1.42, -0.06);
+            leftLegPivot.add(leftHeel);
+
+            pawnRoot.add(leftLegPivot);
+
+            // 右腿 (髖關節為中心)
+            const rightLegPivot = new THREE.Group();
+            rightLegPivot.position.set(-0.22, 1.25, 0);
+
+            const rightLace = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.18, 16), stockingLaceMat);
+            rightLace.position.set(0, -0.09, 0);
+            rightLegPivot.add(rightLace);
+
+            const rightThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.17, 0.65, 16), stockingMat);
+            rightThigh.position.set(0, -0.45, 0);
+            rightLegPivot.add(rightThigh);
+
+            const rightCalf = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.65, 16), stockingMat);
+            rightCalf.position.set(0, -1.0, 0.02);
+            rightLegPivot.add(rightCalf);
+
+            const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.48), pumpShoesMat);
+            rightShoe.position.set(0, -1.35, 0.12);
+            rightLegPivot.add(rightShoe);
+
+            const rightHeel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.02, 0.25, 8), heelWoodMat);
+            rightHeel.position.set(0, -1.42, -0.06);
+            rightLegPivot.add(rightHeel);
+
+            pawnRoot.add(rightLegPivot);
+
+            // 腳底金色星芒光環 (Magical Ground Ring)
+            const ringGeo = new THREE.RingGeometry(0.85, 1.1, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xd4af37, side: THREE.DoubleSide });
+            const groundRing = new THREE.Mesh(ringGeo, ringMat);
             groundRing.rotation.x = -Math.PI / 2;
-            groundRing.position.y = 0.04;
-            pawn.add(groundRing);
+            groundRing.position.y = 0.02;
+            pawnRoot.add(groundRing);
 
-            // 初始放置於自宅莊園
+            // 儲存關節物件以供走動動畫動態驅動
+            pawnParts = {
+                body: bodyGroup,
+                head: headGroup,
+                leftArm: leftArmPivot,
+                rightArm: rightArmPivot,
+                leftLeg: leftLegPivot,
+                rightLeg: rightLegPivot
+            };
+
+            // 初始放置於溫馨自宅莊園
             const homeData = islandData.find(d => d.id === 'home');
-            pawn.position.set(homeData.x, 0.3, homeData.z);
-            scene.add(pawn);
-            daughterPawn = pawn;
+            pawnRoot.position.set(homeData.x, 1.55, homeData.z);
+            scene.add(pawnRoot);
+            daughterPawn = pawnRoot;
         }
 
         // =========================================================================
@@ -1303,8 +1729,22 @@
             if (activeBtn) activeBtn.classList.add('active-cam');
 
             if (viewKey === 'daughter') {
-                const targetPos = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 8.5, daughterPawn.position.z + 12.0);
-                const targetLook = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 1.6, daughterPawn.position.z);
+                const targetPos = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 3.0, daughterPawn.position.z + 5.5);
+                const targetLook = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 1.8, daughterPawn.position.z);
+                lerpVector3(camera, targetPos, 900);
+                lerpTarget(controls, targetLook, 900);
+                return;
+            }
+            if (viewKey === 'daughter-face') {
+                const targetPos = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 3.2, daughterPawn.position.z + 2.2);
+                const targetLook = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 3.05, daughterPawn.position.z);
+                lerpVector3(camera, targetPos, 900);
+                lerpTarget(controls, targetLook, 900);
+                return;
+            }
+            if (viewKey === 'daughter-legs') {
+                const targetPos = new THREE.Vector3(daughterPawn.position.x - 0.2, daughterPawn.position.y + 1.2, daughterPawn.position.z + 2.8);
+                const targetLook = new THREE.Vector3(daughterPawn.position.x, daughterPawn.position.y + 0.6, daughterPawn.position.z);
                 lerpVector3(camera, targetPos, 900);
                 lerpTarget(controls, targetLook, 900);
                 return;
@@ -1385,7 +1825,7 @@
         function selectIsland(data, islandWorldPos) {
             selectedIsland = data;
 
-            // 女兒平滑彈跳走向該島嶼
+            // 女兒雙腿雙臂交替走動前往該島嶼
             moveDaughterTo(islandWorldPos.x, islandWorldPos.z);
 
             // 相機平滑滑行對焦 (3倍大視距)
@@ -1398,35 +1838,69 @@
             openActionPanel(data);
         }
 
-        // 女兒移動弧度彈跳跑步動畫
+        // ★ 女兒各島之間真實走動動畫 (雙腿、雙臂交替擺動，步態起伏，面向目標)
         function moveDaughterTo(targetX, targetZ) {
             const startX = daughterPawn.position.x;
             const startZ = daughterPawn.position.z;
-            let startTime = null;
-            const duration = 850;
+            const dist = Math.hypot(targetX - startX, targetZ - startZ);
+            if (dist < 0.1) return;
 
-            // 女兒轉向目標島嶼
+            let startTime = null;
+            // 根據島嶼跨度距離自適應步速時間 (約 1200ms ~ 2200ms)
+            const duration = Math.max(1200, Math.min(2400, dist * 65));
+
+            // 人物即時轉向行進方位
             const angle = Math.atan2(targetX - startX, targetZ - startZ);
             daughterPawn.rotation.y = angle;
+
+            // 步伐循環次數 (每走約 2 個單位邁出一步)
+            const walkCycles = Math.max(3, dist / 2.0);
 
             function step(timestamp) {
                 if (!startTime) startTime = timestamp;
                 const elapsed = timestamp - startTime;
                 const progress = Math.min(elapsed / duration, 1);
-                
-                const ease = 1 - Math.pow(1 - progress, 3);
+
+                // 柔和起步與減速 EaseInOut
+                const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
                 daughterPawn.position.x = startX + (targetX - startX) * ease;
                 daughterPawn.position.z = startZ + (targetZ - startZ) * ease;
-                
-                // 生動輕快跳躍步伐 (四次弧度彈跳)
-                daughterPawn.position.y = 0.3 + Math.abs(Math.sin(progress * Math.PI * 4)) * 0.65;
+
+                // 走路時的雙腿交替擺動 (正弦波驅動)
+                const phase = progress * walkCycles * Math.PI * 2;
+                if (pawnParts.leftLeg && pawnParts.rightLeg) {
+                    pawnParts.leftLeg.rotation.x = Math.sin(phase) * 0.65;
+                    pawnParts.rightLeg.rotation.x = -Math.sin(phase) * 0.65;
+                }
+
+                // 走路時的雙臂交替擺動 (與雙腿反向)
+                if (pawnParts.leftArm && pawnParts.rightArm) {
+                    pawnParts.leftArm.rotation.x = -Math.sin(phase) * 0.52;
+                    pawnParts.rightArm.rotation.x = Math.sin(phase) * 0.52;
+                }
+
+                // 步履垂直自然顛簸起伏 (每一步微幅抬升)
+                if (pawnParts.body) {
+                    pawnParts.body.position.y = Math.abs(Math.sin(phase)) * 0.14;
+                    // 骨盆左右自然微擺
+                    pawnParts.body.rotation.z = Math.sin(phase) * 0.04;
+                }
 
                 if (progress < 1) {
                     requestAnimationFrame(step);
                 } else {
-                    daughterPawn.position.y = 0.3;
-                    daughterPawn.rotation.y = 0; // 面向鏡頭
+                    // 到達目的地：平穩收步，復位站姿
+                    if (pawnParts.leftLeg) pawnParts.leftLeg.rotation.x = 0;
+                    if (pawnParts.rightLeg) pawnParts.rightLeg.rotation.x = 0;
+                    if (pawnParts.leftArm) pawnParts.leftArm.rotation.x = 0;
+                    if (pawnParts.rightArm) pawnParts.rightArm.rotation.x = 0;
+                    if (pawnParts.body) {
+                        pawnParts.body.position.y = 0;
+                        pawnParts.body.rotation.z = 0;
+                    }
+                    daughterPawn.position.y = 1.55;
+                    daughterPawn.rotation.y = 0; // 抵達後轉身面向鏡頭
                 }
             }
             requestAnimationFrame(step);
@@ -1538,7 +2012,7 @@
         // =========================================================================
         let clock = new THREE.Clock();
 
-        function animate() {
+                function animate() {
             requestAnimationFrame(animate);
 
             const elapsedTime = clock.getElapsedTime();
@@ -1553,9 +2027,9 @@
                 if (item.type === 'rotateX') item.obj.rotation.x += item.speed;
             });
 
-            // 女兒待機呼吸起伏微動
-            if (daughterPawn) {
-                daughterPawn.children[1].position.y = 1.45 + Math.sin(elapsedTime * 2.5) * 0.02;
+            // 待機時身體自然呼吸微動 (Gentle Breathing)
+            if (pawnParts && pawnParts.body) {
+                pawnParts.body.position.y = Math.sin(elapsedTime * 2.2) * 0.012;
             }
 
             renderer.render(scene, camera);
@@ -1563,5 +2037,3 @@
     </script>
 </body>
 </html>
-
-```
