@@ -356,6 +356,20 @@
       }
     }
     const sound = new SoundEngine();
+    // Safe DOM manipulation helpers to prevent null-reference crashes
+    function safeText(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val !== undefined && val !== null ? val : '';
+    }
+    function safeHtml(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = val !== undefined && val !== null ? val : '';
+    }
+    function safeClass(id, className) {
+      const el = document.getElementById(id);
+      if (el) el.className = className;
+    }
+
 
     // 26 Sky Islands Data with Elevation and Pricing
     const TILES = [
@@ -538,9 +552,16 @@
       buildConnectingSkyBridges();
       buildCollaborationLines();
       setupMiniAirship();
-      setupEvents();
 
+      // Start 3D animation loop immediately so canvas renders regardless of UI state
       animate();
+
+      // Wrap UI events in try-catch to guarantee resilient initialization
+      try {
+        setupEvents();
+      } catch (uiErr) {
+        console.warn('UI setup non-fatal warning:', uiErr);
+      }
     }
 
     function setupLighting() {
@@ -1068,10 +1089,10 @@
     // Toast Notification
     function showToast(title, msg, icon = '✨') {
       const toast = document.getElementById('toast');
-      document.getElementById('toast-title').textContent = title;
-      document.getElementById('toast-msg').textContent = msg;
-      document.getElementById('toast-icon').textContent = icon;
-      toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+      safeText('toast-title', title);
+      safeText('toast-msg', msg);
+      safeText('toast-icon', icon);
+      if (toast) toast.classList.remove('translate-y-[-150%]', 'opacity-0');
       toast.classList.add('translate-y-0', 'opacity-100');
       setTimeout(() => {
         toast.classList.remove('translate-y-0', 'opacity-100');
@@ -1086,19 +1107,21 @@
       const t = entry.data;
       currentSelectedIsland = t;
 
-      document.getElementById('inspect-icon').textContent = t.icon;
-      document.getElementById('inspect-title').textContent = t.name;
-      document.getElementById('inspect-price-tag').textContent = t.priceTag;
-      document.getElementById('inspect-subtitle').textContent = `${t.en}・空島高度 Y: ${t.elevation.toFixed(1)}`;
-      document.getElementById('inspect-desc').textContent = t.desc;
+      safeText('inspect-icon', t.icon || '🏝️');
+      safeText('inspect-title', t.name || '空島');
+      safeText('inspect-price-tag', t.priceTag || '');
+      safeText('inspect-subtitle', `${t.en || ''}・空島高度 Y: ${(t.elevation || 0).toFixed(1)}`);
+      safeText('inspect-desc', t.desc || '');
 
       // Badges
       const badge = document.getElementById('inspect-badge');
-      badge.textContent = t.type === 'core' ? '王國核心空島' : `${t.type.toUpperCase()} 荒野空島`;
+      if (badge) {
+        badge.textContent = t.type === 'core' ? '王國核心空島' : `${(t.type || '').toUpperCase()} 荒野空島`;
+      }
 
       // Resident NPCs Strip
       const strip = document.getElementById('inspect-npcs-strip');
-      strip.innerHTML = '';
+      if (strip) strip.innerHTML = '';
       const npcsOnIsland = CHARACTERS.filter(c => c.islandId === t.id);
       if (npcsOnIsland.length > 0) {
         npcsOnIsland.forEach(c => {
@@ -1114,7 +1137,7 @@
 
       // Actions
       const actions = document.getElementById('inspect-actions');
-      actions.innerHTML = '';
+      if (actions) actions.innerHTML = '';
 
       const fugitiveHere = CHARACTERS.find(c => c.islandId === t.id && (c.id === 'pete' || c.id === 'garon' || c.id === 'victor'));
       if (fugitiveHere) {
@@ -1125,7 +1148,7 @@
         btnHunt.innerHTML = fugitiveHere.captured ? '🔒 已押解收押' : `⚔️ 派遣飛空艇追捕【${fugitiveHere.name}】(${fugitiveHere.price})`;
         btnHunt.disabled = fugitiveHere.captured;
         btnHunt.onclick = () => executeBountyAirHunt(fugitiveHere.id);
-        actions.appendChild(btnHunt);
+        if (actions) actions.appendChild(btnHunt);
       }
 
       const btnExplore = document.createElement('button');
@@ -1135,7 +1158,7 @@
         sound.playChime();
         showToast(`巡察【${t.name}】`, `莉莎在此空島進行生態實地調研，信賴 +3、感受 +10。`, '📜');
       };
-      actions.appendChild(btnExplore);
+      if (actions) actions.appendChild(btnExplore);
 
       const pos = axialToWorld(t.q, t.r, t.elevation + t.height);
       flyCameraTo(pos);
@@ -1232,6 +1255,7 @@
     // Render Side Tabs
     function renderNPCTab(filter = 'all') {
       const list = document.getElementById('npc-list');
+      if (!list) return;
       list.innerHTML = '';
 
       let filtered = CHARACTERS;
@@ -1260,6 +1284,7 @@
 
     function renderPricingTab() {
       const list = document.getElementById('pricing-list');
+      if (!list) return;
       list.innerHTML = '';
 
       const priceGroups = [
@@ -1286,6 +1311,7 @@
 
     function renderIslandsTab() {
       const list = document.getElementById('islands-list');
+      if (!list) return;
       list.innerHTML = '';
       TILES.forEach(t => {
         const item = document.createElement('div');
@@ -1307,6 +1333,7 @@
 
     function renderPrisonTab() {
       const list = document.getElementById('fugitive-list');
+      if (!list) return;
       list.innerHTML = '';
       const fugitives = CHARACTERS.filter(c => ['pete', 'garon', 'victor'].includes(c.id));
       fugitives.forEach(f => {
